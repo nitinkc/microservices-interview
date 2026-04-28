@@ -1,91 +1,376 @@
 # Data Consistency & Idempotency — Microservices Interview
 
-> **Level:** Intermediate to Advanced
-> **Section:** [Microservices Interview Guide](../index.md)
+> **Target:** Senior Engineer · Engineering Lead · Pre-Architect
+> **Focus:** Saga pattern, event sourcing, idempotency, eventual consistency, distributed transactions
 
 ---
 
-## Distributed Transactions & Saga Pattern
+## Q: How do you ensure data consistency across multiple services?
 
-Ensuring data consistency across multiple services.
+*Why interviewers ask this:* This is the fundamental challenge of microservices. Tests understanding of eventual consistency, saga patterns, and trade-offs vs traditional ACID.
 
-??? question "Your system needs to ensure data consistency across multiple services. What approach will you use?"
-    Use eventual consistency with compensating transactions (saga pattern). Implement distributed transactions carefully (2-phase commit is rarely recommended). Use event sourcing to maintain audit trail. Design for conflict resolution. Implement version vectors or timestamps. Use message queues for reliable event delivery. Consider domain-driven design to reduce cross-service consistency requirements. Implement comprehensive monitoring to detect consistency issues.
+### Answer
 
-??? question "How does the Saga pattern ensure distributed transaction correctness?"
-    Saga pattern orchestrates a sequence of local transactions across services. Each service performs its transaction and publishes an event. Choreography: services listen to events and trigger next step. Orchestration: coordinator service choreographs the flow. On failure, execute compensating transactions in reverse order. Design each step to be idempotent for replay safety. Use timeouts to detect stuck sagas. Monitor saga completion rates and failures. Log saga execution for debugging.
+In a monolith with a single database, you use ACID transactions. In microservices, each service has its own database — ACID transactions across services are impossible.
 
-??? question "What's the difference between orchestration and choreography sagas?"
-    Orchestration: central coordinator explicitly instructs each service. Easier to debug, single point of control. Choreography: services react to events from other services. More decoupled, but complex event flow. Orchestration works better for complex workflows. Choreography scales better with many services. Hybrid approach: use orchestration for critical paths, choreography for async flows. Consider maintainability and debugging difficulty when choosing.
+**Three approaches:**
 
-??? question "2-phase commit (2PC) seems like it should work for distributed transactions. Why is it problematic?"
-    2PC locks resources during prepare phase, blocking other transactions. Poor scalability and performance. If coordinator fails, locks held indefinitely (blocking). Doesn't work well across network partitions. Not suitable for microservices because services should be independent. Saga pattern is more appropriate for microservices (allows partial success). Use 2PC only if: single database with distributed transactions, or very tight consistency requirements with low scale.
+| Approach | Consistency Model | Complexity | Use Case |
+|----------|------------------|-----------|----------|
+| **Saga Pattern** | Eventual consistency | Medium | Distributed business transactions (orders, payments) |
+| **Event Sourcing** | Eventual consistency | High | Audit trail, temporal queries, event-driven systems |
+| **2-Phase Commit** | Strong consistency | High complexity, poor performance | Rare — only tightly coupled legacy systems |
 
----
-
-## Event Deduplication & Exactly-Once Processing
-
-Preventing duplicate event processing.
-
-??? question "Your system processes the same event multiple times. How will you prevent duplication?"
-    Implement idempotent event handlers — process the same message multiple times safely. Use event deduplication with event IDs and a store of processed IDs. Implement exactly-once processing semantics in message brokers. Use database unique constraints. Track event sequence numbers. Implement idempotency keys at the handler level. Design handlers to be side-effect free on replay. Consider event store to track processed events.
-
-??? question "How do you implement exactly-once event processing?"
-    Use messaging systems with exactly-once guarantees (Kafka with transactional reads/writes, RabbitMQ with manual acknowledgment). Implement deduplication at application level: store event ID in database before processing. Design handlers to be idempotent. Use atomic writes: write result and event ID in same transaction. Implement at-least-once delivery + idempotency = exactly-once semantics. Monitor duplicate rates. Test failure scenarios.
-
-??? question "A message queue builds up a backlog of unprocessed events. How will you handle it?"
-    Increase consumer instances to process messages in parallel. Optimize consumer processing speed — profile and optimize handler code. Implement batching to process multiple messages together. Use priority queues for critical messages. Implement rate limiting on producers if sustainable. Archive old messages if acceptable. Use dead-letter queues for poison messages. Monitor queue depth and alert on buildup. Consider stream processing frameworks for complex logic.
-
----
-
-## Idempotency in Microservices
-
-Designing operations that can be safely retried.
-
-??? question "How do you make an API endpoint idempotent?"
-    Design endpoint to produce the same result when called multiple times with same input. Use idempotency keys (unique request IDs) provided by clients. Store idempotency key with result for a time window (24 hours). On retry with same key, return cached result. Implement at application layer: deduplicate before processing. Use database unique constraints for safety. Document idempotency guarantees in API contract. Test idempotency in all failure scenarios.
-
-??? question "A payment service must be idempotent. How will you implement it?"
-    Accept idempotency key in payment request. Store idempotency key before processing payment. Check if payment already processed with same key — return cached result. Implement database transaction: update ledger and mark idempotency key as processed atomically. Handle timeout case: use polling to check if payment was processed. Design refund operation to be idempotent. Log all payment attempts. Set idempotency window (e.g., 24 hours). Monitor duplicate payment attempts.
-
----
-
-## Handling Partial Failures
-
-Gracefully degrading when some operations fail.
-
-??? question "Your system needs to handle partial failures gracefully. How will you design it?"
-    Use saga patterns (orchestration or choreography) to handle distributed transactions where some steps may fail. Implement compensating transactions to roll back partial changes. Design APIs to be partially successful — return which items succeeded/failed. Use eventual consistency where total consistency isn't critical. Log partial failures separately for replay/recovery. Notify users of partial failures. Implement retry logic for transient failures. Use timeouts to detect stuck operations.
-
-??? question "A batch operation succeeds partially. How will you handle it?"
-    Return detailed result: which items succeeded, which failed, with reasons. Use status codes (202 Accepted for async, 207 Multi-Status for batch). Provide mechanism to retry failed items without reprocessing successful ones. Implement idempotency to allow safe retries. Log partial failure for debugging. Notify user of partial success. Design compensating transaction if needed. Consider atomicity requirements: all-or-nothing vs partial success acceptable.
-
----
-
-## Diagram
+**Saga Pattern — Recommended:**
 
 ```mermaid
 graph LR
-    Client["Client · Request ID"]
-    OrderService["Order Service"]
-    PaymentService["Payment Service"]
-    InventoryService["Inventory Service"]
-    EventStore["Event Store"]
-    DeadLetter["Dead Letter Queue"]
+    subgraph Saga["Order Saga · Compensating Transactions"]
+        Step1["Order Service\nCreate Order"]
+        Step2["Payment Service\nProcess Payment"]
+        Step3["Inventory Service\nReserve Stock"]
+        Comp1["Compensate:\nRefund Payment"]
+        Comp2["Compensate:\nRelease Reservation"]
+    end
 
-    Client -->|Create Order · Idempotency Key| OrderService
-    OrderService -->|Saga Start · Event| EventStore
-    OrderService -->|Call with Retry| PaymentService
-    PaymentService -->|Idempotent| PaymentService
-    OrderService -->|Call with Retry| InventoryService
-    InventoryService -->|Async Event| EventStore
-    PaymentService -->|Fail · Compensate| OrderService
-    OrderService -->|Poison Message| DeadLetter
+    Step1 -->|Success| Step2
+    Step2 -->|Success| Step3
+    Step3 -->|Fail| Comp1
+    Comp1 -->|Undo| Step1
+    Step2 -->|Fail| Comp1
+    Comp1 -->|Execute| Comp2
+```
 
-    style OrderService fill:#4ecdc4
-    style EventStore fill:#51cf66
-    style DeadLetter fill:#ff6b6b
+Saga orchestrates a sequence of **local** (per-service) transactions. On failure, compensating transactions execute in **reverse order**:
+1. Order Service creates order
+2. Payment Service processes payment
+3. If payment fails → trigger refund (compensating tx)
+4. If refund fails → escalate to manual intervention
+
+!!! tip "Architect Insight"
+    Sagas don't guarantee atomicity like a database transaction — they guarantee **eventual consistency** and **durability** (no money lost, no order lost). Design each saga step to be **idempotent** so retries are safe.
+
+---
+
+## Q: Orchestration vs Choreography Sagas — Which should you use?
+
+### Answer
+
+**Orchestration** — Central coordinator explicitly manages the flow:
+```
+Client → OrderSagaOrchestrator → [calls] → PaymentService
+                              ↓
+                         → InventoryService
+                              ↓
+                         → ShippingService
+```
+
+**Choreography** — Services react to events, flow emerges from interactions:
+```
+Client → OrderService (publishes: OrderCreated)
+           ↓
+    PaymentService (listens, publishes: PaymentProcessed)
+           ↓
+    InventoryService (listens, publishes: InventoryReserved)
+           ↓
+    ShippingService (listens)
+```
+
+**Trade-off comparison:**
+
+|                  | Orchestration                         | Choreography                   |
+|:-----------------|:--------------------------------------|:-------------------------------|
+| Coupling         | Medium — coordinator knows all steps  | Low — each service independent |
+| Debugging        | Easy — one place to trace flow        | Hard — distributed event logic |
+| Complexity       | Single orchestrator service           | Many event listeners           |
+| Testing          | Mock dependencies in orchestrator     | Integration test entire flow   |
+| Scalability      | Orchestrator can become bottleneck    | Scales better                  |
+| Failure recovery | Timeouts + compensations in one place | Scattered across services      |
+
+**Recommendation:**
+- **Orchestration** for critical, complex business processes (order → payment → inventory → shipping)
+- **Choreography** for loosely coupled events (user signup → send welcome email, create analytics record)
+- **Hybrid** for best of both: orchestrate order creation, choreograph notifications
+
+---
+
+## Q: Why is 2-Phase Commit problematic in microservices?
+
+*Why interviewers ask this:* Tests whether you understand why old database patterns don't scale in distributed systems.
+
+### Answer
+
+2PC (Two-Phase Commit) is a database algorithm for atomic updates across multiple databases:
+
+**Phase 1 (Prepare):** Coordinator asks all participants "Can you commit?" — they lock resources and respond.
+**Phase 2 (Commit):** If all yes, commit. If any no, rollback.
+
+**Why it fails in microservices:**
+
+| Problem                | Impact                                                                                           |
+|:-----------------------|:-------------------------------------------------------------------------------------------------|
+| **Resource locks**     | Prepare phase holds locks on Payment, Inventory for the entire duration — other requests blocked |
+| **Blocking**           | If one service is slow, all others wait (cascading slowness)                                     |
+| **Network partitions** | If coordinator crashes, participants hold locks forever (distributed deadlock)                   |
+| **Scalability**        | Doesn't work across service boundaries reliably — services should be independent                 |
+| **Latency**            | Synchronous, multi-round-trip protocol — slow                                                    |
+
+**Example failure:**
+```
+Coordinator: "All commit?"
+PaymentService: "Yes" ✓
+InventoryService: [network partition, no response]
+Coordinator: [waiting indefinitely]
+Other orders: [blocked on payment/inventory locks]
+```
+
+**When 2PC is safe:**
+- Single database with distributed transactions (no network partitions)
+- Tightly coupled legacy systems where you control all components
+- Very low scale (not at production microservices scale)
+
+**Use Saga instead** — allows partial success and recovers gracefully.
+
+---
+
+## Q: How do you implement idempotent API endpoints?
+
+*Why interviewers ask this:* Idempotency is critical for safe retries. Tests system thinking about failure scenarios.
+
+### Answer
+
+**Idempotency** means calling the same operation multiple times with the same input produces the same result as calling it once.
+
+**Implementation strategy:**
+
+1. **Client provides idempotency key** (UUID, unique per logical operation):
+   ```json
+   POST /api/payments
+   {
+     "idempotencyKey": "550e8400-e29b-41d4-a716-446655440000",
+     "amount": 100.00,
+     "orderId": "12345"
+   }
+   ```
+
+2. **Server checks if key was already processed**:
+   ```java
+   @PostMapping("/payments")
+   public ResponseEntity<PaymentResponse> pay(
+       @RequestBody PaymentRequest request,
+       @RequestHeader("Idempotency-Key") String key) {
+
+       // Check if already processed
+       Optional<PaymentResponse> cached = idempotencyStore.get(key);
+       if (cached.isPresent()) {
+           return ResponseEntity.ok(cached.get()); // Return cached result
+       }
+
+       // Process payment
+       Payment payment = paymentService.process(request);
+
+       // Store result with idempotency key
+       idempotencyStore.put(key, response, ttl = 24_hours);
+
+       return ResponseEntity.ok(response);
+   }
+   ```
+
+3. **Store the result for a time window** (24 hours typical):
+   ```sql
+   CREATE TABLE idempotency_results (
+       key VARCHAR(36) PRIMARY KEY,
+       result JSONB NOT NULL,
+       created_at TIMESTAMP NOT NULL,
+       expires_at TIMESTAMP NOT NULL
+   );
+   ```
+
+**For payment services specifically:**
+```java
+@Service
+public class PaymentService {
+
+    @Transactional
+    public PaymentResponse processPayment(PaymentRequest req, String idempotencyKey) {
+        // All in one transaction — atomic
+        PaymentResponse response = callPaymentGateway(req);
+        idempotencyRepo.save(new IdempotencyRecord(idempotencyKey, response));
+        return response;
+    }
+}
+```
+
+!!! warning "Common Mistake"
+    Don't check idempotency AFTER processing — if the check fails and you process twice, you've already duplicated the charge. Check BEFORE, and only proceed if not found.
+
+---
+
+## Q: How do you implement exactly-once event processing?
+
+*Why interviewers ask this:* Event-driven systems at scale face duplicate message challenges. Tests understanding of messaging guarantees and application-level deduplication.
+
+### Answer
+
+**Message delivery guarantees:**
+
+| Guarantee         | How it works                  | When duplicates occur                             |
+|:------------------|:------------------------------|:--------------------------------------------------|
+| **At-most-once**  | Sent once, may be lost        | Network failure before server acks                |
+| **At-least-once** | Resent until acked            | Server crashes after processing but before acking |
+| **Exactly-once**  | At-least-once + deduplication | Application responsibility                        |
+
+Most message brokers offer **at-least-once** (safer than at-most-once). To achieve **exactly-once**:
+
+```mermaid
+graph LR
+    Producer["Producer"]
+    Kafka["Kafka · At-least-once"]
+    Consumer["Consumer · Event Handler"]
+    DB["Database"]
+
+    Producer -->|Send event| Kafka
+    Kafka -->|Deliver · may retry| Consumer
+    Consumer -->|1. Check if processed| DB
+    Consumer -->|2. If not: Process + Store ID| DB
+    DB -->|Atomic transaction| DB
+    Consumer -->|3. Acknowledge| Kafka
+```
+
+**Implementation:**
+
+```java
+@KafkaListener(topics = "orders")
+public void handleOrderEvent(OrderEvent event, Acknowledgment ack) throws Exception {
+    String eventId = event.getEventId(); // UUID
+
+    try {
+        // Step 1: Check if already processed
+        if (deduplicationStore.hasProcessed(eventId)) {
+            log.info("Event {} already processed, skipping", eventId);
+            ack.acknowledge();
+            return;
+        }
+
+        // Step 2: Process event + store ID in SAME transaction
+        @Transactional
+        void processInTransaction() {
+            // Process the event
+            Order order = orderService.createOrder(event);
+
+            // Store the event ID to prevent reprocessing
+            deduplicationStore.markProcessed(eventId, Instant.now());
+            // ^^ Both writes happen atomically in the DB transaction
+        }
+
+        // Step 3: Acknowledge after successful processing
+        ack.acknowledge();
+
+    } catch (Exception e) {
+        log.error("Failed to process event {}, will retry", eventId, e);
+        // Don't acknowledge — Kafka will redeliver
+        throw e;
+    }
+}
+```
+
+**Deduplication store schema:**
+```sql
+CREATE TABLE processed_events (
+    event_id VARCHAR(36) PRIMARY KEY,
+    processed_at TIMESTAMP NOT NULL,
+    expires_at TIMESTAMP NOT NULL
+);
+CREATE INDEX idx_event_id ON processed_events(event_id);
+```
+
+**Key principle:** Process event + store event ID in the **same database transaction**. If either fails, both rollback. On retry, the event ID check prevents reprocessing.
+
+---
+
+## Q: A message queue is backing up. How do you diagnose and fix it?
+
+### Answer
+
+**Diagnose:**
+
+| Metric | Healthy | Warning | Critical |
+|--------|---------|---------|----------|
+| Queue depth | < 1K | 1K-10K | > 10K |
+| Consumer lag | < 1 sec | 1-30 sec | > 1 min |
+| Throughput | > 1K msg/sec | 100-1K | < 100 |
+
+**Common causes and fixes:**
+
+```
+Queue backing up?
+├─ Consumer slow?
+│  ├─ Optimize handler code (profile, add caching)
+│  ├─ Parallelize: increase consumer instances
+│  └─ Batch: process multiple messages together
+├─ Downstream service down?
+│  ├─ Circuit break: stop consuming, prevent cascading
+│  └─ Retry: exponential backoff + dead letter queue
+├─ Message poison (repeatedly fails)?
+│  ├─ Move to dead letter queue
+│  ├─ Alert ops
+│  └─ Manual review and fix
+└─ Sustained high volume?
+   ├─ Add more partitions (Kafka)
+   ├─ Auto-scale consumers
+   └─ Archive old messages
+```
+
+**Production example — Spring Cloud Stream:**
+```java
+@Configuration
+public class ConsumerConfig {
+
+    @Bean
+    public Consumer<Message<OrderEvent>> handleOrder() {
+        return message -> {
+            OrderEvent event = message.getPayload();
+            try {
+                orderService.processOrder(event);
+            } catch (TemporaryException e) {
+                // Retry with backoff
+                throw new AmqpRejectAndDontRequeueException("Temporary failure", e);
+            } catch (PermanentException e) {
+                // Send to dead letter
+                deadLetterQueue.send(event);
+                log.error("Unrecoverable error, moved to DLQ", e);
+            }
+        };
+    }
+}
+```
+
+---
+
+## Diagram — Complete Idempotent Order Processing
+
+```mermaid
+graph LR
+    Client["Client\n· Idempotency Key"]
+    OrderSvc["Order Service"]
+    IdempStore["Idempotency Store\nRedis + DB"]
+    PaymentSvc["Payment Service"]
+    InventorySvc["Inventory Service"]
+    EventBus["Event Bus"]
+    
+    Client -->|Request + Key| OrderSvc
+    OrderSvc -->|Check: already processed?| IdempStore
+    IdempStore -->|Cache hit: return cached| OrderSvc
+    IdempStore -->|Cache miss: process| OrderSvc
+    OrderSvc -->|Reserve inventory| InventorySvc
+    OrderSvc -->|Process payment| PaymentSvc
+    PaymentSvc -->|Idempotent call| PaymentSvc
+    OrderSvc -->|Store result + key| IdempStore
+    OrderSvc -->|Publish: OrderCreated| EventBus
+    
+    style IdempStore fill:#51cf66
+    style OrderSvc fill:#4ecdc4
+    style EventBus fill:#ffe066
 ```
 
 --8<-- "_abbreviations.md"
-

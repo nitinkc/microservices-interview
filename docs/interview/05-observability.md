@@ -1,102 +1,283 @@
 # Observability & Debugging — Microservices Interview
 
-> **Level:** Intermediate to Advanced
-> **Section:** [Microservices Interview Guide](../index.md)
+> **Target:** Senior Engineer · Engineering Lead · Pre-Architect
+> **Focus:** Centralized logging, distributed tracing, metrics, SLOs
 
 ---
 
-## Distributed Logging
+## Q: How do you implement centralized logging across dozens of microservices?
 
-Centralizing and analyzing logs across services.
+*Why interviewers ask this:* Distributed logging is foundational to debugging. Tests understanding of log aggregation, correlation, and searchability at scale.
 
-??? question "Your logs are distributed across services making debugging difficult. How will you centralize logging?"
-    Implement centralized logging (ELK Stack, Splunk, DataDog, etc.). Add structured logging with correlation IDs across all services. Include request IDs in logs automatically via middleware. Log at appropriate levels (INFO, WARN, ERROR). Add context information (service name, instance ID, user ID). Implement log aggregation pipelines. Use log sampling for high-volume services. Create dashboards for log analysis. Implement alerting on error patterns.
+### Answer
 
-??? question "A service silently fails without proper logs. How will you improve observability?"
-    Ensure all code paths log errors with full context. Implement exception handlers that capture stack traces. Use observability tools (metrics, traces, logs). Implement health checks and expose metrics. Add debug logging in development. Use APM tools (Application Performance Monitoring) to detect silent failures. Implement alerting on error rates and latency anomalies. Add circuit breaker monitoring. Implement canary deployments with validation.
+**Logging stack:**
 
-??? question "How do you structure logs for efficient searching and debugging?"
-    Use structured logging (JSON format) instead of unstructured text. Include correlation IDs to trace requests across services. Add contextual fields: service name, instance, environment, user ID. Use consistent log levels: DEBUG, INFO, WARN, ERROR, FATAL. Add timestamps in UTC. Include full stack traces for errors. Use field names consistently across all services. Implement log parsing and indexing in log aggregation tool. Create saved searches for common debugging scenarios.
+```
+Services (stdout)
+  ↓ (JSON structured logs)
+Filebeat/Logstash (collect & parse)
+  ↓
+Elasticsearch (index & store)
+  ↓
+Kibana (search & visualize)
+```
+
+**Spring Boot structured logging:**
+
+```java
+@Slf4j
+@RestController
+public class OrderController {
+
+    @PostMapping("/orders")
+    public Order createOrder(@RequestBody OrderRequest req) {
+        String traceId = MDC.get("traceId");
+        String spanId = MDC.get("spanId");
+        
+        log.info("order.created", 
+            kv("traceId", traceId),
+            kv("spanId", spanId),
+            kv("customerId", req.getCustomerId()),
+            kv("amount", req.getAmount())
+        );
+        
+        return orderService.create(req);
+    }
+}
+```
+
+**Logback config with JSON:**
+
+```xml
+<appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+  <encoder class="net.logstash.logback.encoder.LogstashEncoder">
+    <fieldNames>
+      <timestamp>@timestamp</timestamp>
+      <version>@version</version>
+      <message>message</message>
+      <loggerName>logger_name</loggerName>
+    </fieldNames>
+  </encoder>
+</appender>
+```
+
+**Elasticsearch query:**
+
+```
+GET /logs-*/_search
+{
+  "query": {
+    "bool": {
+      "must": [
+        {"match": {"traceId": "123abc"}},
+        {"match": {"level": "ERROR"}}
+      ]
+    }
+  }
+}
+```
+
+!!! tip "Architect Insight"
+    Include correlation IDs (trace ID) in every log. This is the single most important thing for distributed debugging.
 
 ---
 
-## Distributed Tracing
+## Q: How do you implement distributed tracing across service boundaries?
 
-Understanding request flow across services.
+### Answer
 
-??? question "You need to trace a request across multiple services. How will you implement distributed tracing?"
-    Use a distributed tracing system (Jaeger, Zipkin, or vendor-managed like DataDog). Implement trace propagation by passing trace IDs and span IDs across service boundaries. Use Spring Cloud Sleuth for automatic instrumentation. Instrument HTTP calls, database queries, and message handling. Sample traces intelligently to avoid overhead. Create dashboards showing request flow. Analyze traces to identify slow operations. Monitor critical path latency.
+**Trace propagation:**
 
-??? question "How do you implement trace context propagation?"
-    Include trace ID and span ID in request headers (X-Trace-ID, X-Span-ID). Pass headers across HTTP calls, message queues, and async operations. Use tracing library to automatically extract/inject context. For async operations, propagate context when creating tasks. For message queues, include trace context in message headers. Ensure all downstream calls include parent span ID. Monitor context propagation failure. Test propagation in integration tests.
+```
+Client Request
+  ↓ Generate traceId="abc123", spanId="span1"
+  ↓ Pass in header: X-Trace-ID: abc123, X-Span-ID: span1
+Service A
+  ↓ Extract headers, create child span
+  ↓ Call Service B with parent spanId
+Service B
+  ↓ Extract headers, add to new span
+  ↓ Response includes spanId
+Service A
+  ↓ Collect all spans, send to collector (Jaeger)
+Jaeger
+  ↓ Visualize trace flow and latency breakdown
+```
 
-??? question "Distributed tracing adds overhead to production. How do you minimize it?"
-    Implement smart sampling: sample high-error-rate requests at 100%, others at 1-5%. Use tail sampling to capture slow requests. Implement dynamic sampling based on load. Compress trace data before transmission. Batch trace exports to reduce network calls. Use asynchronous trace export. Monitor tracing overhead (should be <1% CPU/memory). Implement trace retention policies (keep 7-30 days). Use sampling at span level for verbose services. Test performance impact in staging.
+**Spring Cloud Sleuth + Jaeger:**
+
+```java
+// Pom.xml
+<dependency>
+    <groupId>org.springframework.cloud</groupId>
+    <artifactId>spring-cloud-starter-sleuth</artifactId>
+</dependency>
+<dependency>
+    <groupId>org.springframework.cloud</groupId>
+    <artifactId>spring-cloud-sleuth-otel-exporter-jaeger</artifactId>
+</dependency>
+```
+
+**Headers automatically added:**
+
+```
+GET /orders/123 HTTP/1.1
+X-B3-TraceId: abc123
+X-B3-SpanId: span456
+X-B3-ParentSpanId: span1
+```
+
+**Sampling strategy:**
+
+```yaml
+spring:
+  sleuth:
+    sampler:
+      probability: 0.1  # Sample 10% of traces (1% in prod)
+      rate: 100  # Or sample 100 traces/sec
+```
+
+!!! warning "Common Mistake"
+    Sample everything in dev (probability: 1.0), but only 1-10% in production or you'll overwhelm Jaeger with data.
 
 ---
 
-## Metrics & Monitoring
+## Q: What metrics should you monitor for microservices health?
 
-Tracking system health and performance.
+### Answer
 
-??? question "What metrics should you monitor for microservices?"
-    Monitor Golden Signals: latency (p50, p95, p99), traffic (requests/sec), errors (rate, types), saturation (CPU, memory, queue depth). Add business metrics: orders processed, revenue, user conversions. Monitor per-service: response time, error rate, queue depth. Monitor infrastructure: CPU, memory, disk, network. Monitor dependencies: database latency, external API calls. Set meaningful thresholds and alerts. Create dashboards for different audiences (ops, dev, business). Review metrics regularly for anomalies.
+**Golden Signals** (essential):
 
-??? question "How do you implement effective alerting without alert fatigue?"
-    Set thresholds based on SLOs (Service Level Objectives), not arbitrary values. Implement multi-condition alerts: latency AND error rate together. Use dynamic thresholds (baseline + deviation). Group related alerts to avoid duplicates. Implement severity levels (critical, warning, info). Set escalation policies. Include remediation steps in alerts. Test alerts regularly. Tune thresholds monthly based on false positive rate. Target <5% false positive rate. Implement on-call rotations for critical alerts.
+| Signal | Target | Alert If |
+|--------|--------|----------|
+| **Latency** | p50 < 200ms, p99 < 1s | p99 > 2s for 5+ min |
+| **Errors** | < 0.1% error rate | Error rate > 1% |
+| **Saturation** | CPU < 70% | CPU > 85% or memory > 90% |
+| **Traffic** | Monitor ramp | Unexpected drop (outage) or spike |
 
-??? question "A production incident goes undetected for hours. How will you improve monitoring?"
-    Implement SLOs (Service Level Objectives) with alerting. Monitor error rates, latency, and availability explicitly. Add synthetic monitoring — proactive checks from outside. Implement health checks and expose metrics. Set up low-latency alerting (<1 minute detection). Include business metrics not just technical. Implement anomaly detection for unusual patterns. Create clear runbooks for common alerts. Test incident response regularly. Use observability tools that correlate signals (logs, traces, metrics).
+**Spring Boot + Prometheus:**
+
+```java
+@Bean
+public MeterBinder orderMetrics(OrderRepository repo) {
+    return (registry) -> {
+        Gauge.builder("orders.total", repo, OrderRepository::count)
+            .description("Total orders in system")
+            .register(registry);
+        
+        Timer.builder("order.create.time")
+            .description("Time to create order")
+            .publishPercentiles(0.5, 0.95, 0.99)
+            .register(registry);
+    };
+}
+```
+
+**Prometheus scrape config:**
+
+```yaml
+global:
+  scrape_interval: 15s
+
+scrape_configs:
+  - job_name: 'order-service'
+    static_configs:
+      - targets: ['localhost:8080']
+    metrics_path: '/actuator/prometheus'
+```
+
+**Alerting rules:**
+
+```yaml
+groups:
+  - name: microservices
+    rules:
+      - alert: HighErrorRate
+        expr: rate(http_requests_total{status=~"5.."}[5m]) > 0.01
+        for: 5m
+        annotations:
+          summary: "Error rate > 1% for {{ $labels.service }}"
+          
+      - alert: PodRestartingTooOften
+        expr: rate(container_last_seen[5m]) > 0.1
+        annotations:
+          summary: "Pod {{ $labels.pod }} restarting frequently"
+```
 
 ---
 
-## Application Performance Monitoring (APM)
+## Q: How do you implement effective alerting without alert fatigue?
 
-Using APM tools to diagnose performance issues.
+### Answer
 
-??? question "Should you invest in an APM tool? What value does it provide?"
-    APM tools (DataDog, New Relic, Dynatrace) automatically instrument code without code changes. Provide distributed tracing, service maps, and root cause analysis. Identify bottlenecks across services automatically. Track database queries and slow endpoints. Monitor dependencies and external calls. Reduce troubleshooting time significantly. Start with open source (Jaeger, Prometheus) for small systems. Invest in commercial APM for large deployments (100+ services, high traffic). ROI: faster incident resolution, better capacity planning.
+**Alert design principles:**
+
+```
+Good alerts:
+- Based on SLO (Service Level Objective)
+- Actionable (on-call knows what to do)
+- Signal-to-noise > 90% (low false positives)
+
+Bad alerts:
+- CPU > 50% (constantly triggers)
+- Page 20 alerts per hour (meaningless)
+- "Something is wrong" with no context
+```
+
+**SLO-based alerting:**
+
+```
+SLO: 99.9% availability = 99.9% requests succeed
+     = 0.001 error budget per day
+     
+Alert if:
+- Error rate > 1% for 5+ minutes (burns budget too fast)
+- Error rate > 0.5% for 1+ minute (indicates trend)
+
+Don't alert on:
+- Error rate = 0% for 1 second (noise)
+- CPU = 60% (arbitrary threshold)
+```
+
+**Severity levels:**
+
+```
+CRITICAL (page on-call):
+  - Service completely down
+  - Error rate > 5%
+  - Database unavailable
+
+WARNING (create ticket):
+  - Error rate 1-5%
+  - Latency p99 > 5s
+  - Disk usage > 80%
+
+INFO (log only):
+  - Warnings
+  - Deprecation notices
+```
 
 ---
 
-## Diagram
+## Diagram — Observability Stack
 
 ```mermaid
 graph LR
-    Service1["Service A · Request"]
-    Service2["Service B"]
-    Service3["Service C"]
+    Svc["Microservices\n· Logs\n· Metrics\n· Traces"]
+    Collect["Collection\n· Filebeat\n· OpenTelemetry"]
+    Store["Storage\n· Elasticsearch\n· Prometheus\n· Jaeger"]
+    Query["Query & Alert\n· Kibana\n· Grafana\n· AlertManager"]
+    OnCall["On-Call\n· Page engineer\n· Context provided"]
     
-    Logs["Centralized Logs · ELK"]
-    Traces["Distributed Traces · Jaeger"]
-    Metrics["Metrics · Prometheus"]
+    Svc -->|Emit| Collect
+    Collect -->|Send| Store
+    Store -->|Query| Query
+    Query -->|Alert| OnCall
     
-    Dashboard["Dashboard · Grafana"]
-    Alert["Alert Manager"]
-    
-    Service1 -->|Structured Logs| Logs
-    Service2 -->|Structured Logs| Logs
-    Service3 -->|Structured Logs| Logs
-    
-    Service1 -->|Trace ID| Traces
-    Service2 -->|Span ID| Traces
-    Service3 -->|Span ID| Traces
-    
-    Service1 -->|Metrics| Metrics
-    Service2 -->|Metrics| Metrics
-    Service3 -->|Metrics| Metrics
-    
-    Logs --> Dashboard
-    Traces --> Dashboard
-    Metrics --> Dashboard
-    
-    Dashboard --> Alert
-    Alert -.->|Page On-Call| Service1
-
-    style Logs fill:#51cf66
-    style Traces fill:#4ecdc4
-    style Metrics fill:#ffe066
+    style Collect fill:#4ecdc4
+    style Store fill:#51cf66
+    style Query fill:#ffe066
 ```
 
 --8<-- "_abbreviations.md"
-

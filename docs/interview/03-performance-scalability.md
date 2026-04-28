@@ -1,89 +1,287 @@
 # Performance & Scalability — Microservices Interview
 
-> **Level:** Intermediate to Advanced
-> **Section:** [Microservices Interview Guide](../index.md)
+> **Target:** Senior Engineer · Engineering Lead · Pre-Architect
+> **Focus:** Bottleneck diagnosis, auto-scaling, latency optimization, caching
 
 ---
 
-## Identifying Performance Bottlenecks
+## Q: Your system shows high latency only during peak hours. How do you identify the bottleneck?
 
-Techniques for finding and optimizing slow systems.
+*Why interviewers ask this:* Production latency issues are complex. Tests your ability to methodically diagnose across layers (network, service, database, JVM).
 
-??? question "Your system shows high latency only during peak hours. How will you identify the bottleneck?"
-    Use distributed tracing (e.g., Jaeger, Zipkin) to identify which service/component is slow. Analyze database query performance during peaks. Check CPU, memory, and network utilization. Look for lock contention or resource saturation. Monitor JVM garbage collection pauses. Analyze thread pool saturation. Use load testing to reproduce the issue. Check for cascading failures from slow dependency.
+### Answer
 
-??? question "You notice uneven load distribution across instances. What could be wrong?"
-    Check the load balancer algorithm — ensure it's health-aware. Verify service instances have similar performance (no slow instances). Check if sticky sessions are misconfigured. Look for request affinity issues. Verify DNS round-robin is working. Check if some instances are under more load due to colocation. Implement least-connections or weighted round-robin balancing. Monitor instance metrics individually.
+**Diagnosis pyramid** (test from top down):
 
-??? question "A database becomes the bottleneck for read operations. How will you optimize?"
-    Implement read replicas for read-heavy workloads. Add caching layer (Redis, Memcached) for frequently accessed data. Optimize queries — add indexes, avoid N+1 queries. Implement pagination for large result sets. Use connection pooling to avoid exhaustion. Consider read-only followers in multi-region setup. Implement materialized views for complex queries. Archive old data to reduce query scope.
+```
+Network latency (1-10ms)?
+  ↓ DNS, TCP handshake, TLS
+Service latency (10-100ms)?
+  ↓ Handler logic, serialization
+Database latency (50-500ms)?
+  ↓ Query time, locks, I/O
+JVM overhead (5-50ms)?
+  ↓ GC pauses, thread contention
+```
+
+**Tools & metrics:**
+
+| Layer | Tool | Metric |
+|-------|------|--------|
+| **End-to-end** | Distributed tracing (Jaeger) | p50, p95, p99 latency per service |
+| **Database** | Slow query log, EXPLAIN PLAN | Query time, lock waits |
+| **JVM** | `-XX:+PrintGCDetails` | GC pause duration, frequency |
+| **System** | `top`, `iostat`, `netstat` | CPU, memory, disk I/O, network |
+| **Thread pool** | Spring Boot Actuator | Active threads, queue depth |
+
+**Spring Boot diagnostic code:**
+
+```java
+@RestController
+public class DiagnosticController {
+
+    @GetMapping("/api/orders/{id}")
+    public Order getOrder(@PathVariable String id) {
+        long start = System.nanoTime();
+        
+        try {
+            // Database call — measure separately
+            long dbStart = System.nanoTime();
+            Order order = orderRepository.findById(id).orElseThrow();
+            long dbTime = System.nanoTime() - dbStart;
+            
+            log.info("Order lookup: {}ms", dbTime / 1_000_000);
+            return order;
+        } finally {
+            long total = System.nanoTime() - start;
+            log.info("Total latency: {}ms", total / 1_000_000);
+        }
+    }
+}
+```
+
+**Peak hours diagnosis checklist:**
+
+- [ ] Distributed trace shows which service is slow
+- [ ] Database slow query log identifies problematic queries
+- [ ] `jstat -gc` shows if GC pauses spike during load
+- [ ] Thread pool metrics show saturation (queue_depth > 0)
+- [ ] Network latency within expected range (< 50ms)
 
 ---
 
-## Scaling Under Load
+## Q: You notice uneven load distribution across instances. What could be wrong?
 
-Strategies for handling sudden traffic spikes.
+### Answer
 
-??? question "A sudden traffic spike crashes multiple services. How will you scale and stabilize the system?"
-    Implement auto-scaling policies based on CPU, memory, or custom metrics. Use load shedding to gracefully degrade during spikes. Implement bulkheads to prevent cascading failures. Use rate limiting and quota management. Add more replicas horizontally. Scale database read replicas if applicable. Implement caching aggressively. Use message queues to buffer requests. Implement circuit breakers to prevent overload propagation.
+**Load balancer issues:**
 
-??? question "Your API Gateway becomes a bottleneck under load. How will you optimize it?"
-    Implement horizontal scaling with load balancing. Use async processing in the gateway. Optimize routing logic and caching. Implement rate limiting to prevent overload. Use connection pooling. Cache responses at the gateway level. Consider splitting into multiple gateways by business domain. Use CDN for static content. Offload TLS termination to a load balancer. Monitor gateway metrics carefully.
+| Problem | Sign | Fix |
+|---------|------|-----|
+| **Sticky sessions misconfigured** | Some instances get 80% traffic | Remove session affinity or use shared session store (Redis) |
+| **Health check failing** | Healthy instance marked down | Verify `/health` endpoint is working |
+| **Round-robin only** | No awareness of instance load | Switch to least-connections or weighted algorithm |
+| **DNS caching** | Requests go to old instance | Reduce DNS TTL, use service discovery |
+| **Colocation** | Instances on same physical host | Check infrastructure layout, spread replicas |
 
-??? question "How do you implement auto-scaling for microservices?"
-    Define scaling policies based on CPU (70%), memory, or custom metrics (request latency, queue depth). Set min/max replicas (e.g., 2-10). Use cloud provider tools (AWS Auto Scaling, GKE Horizontal Pod Autoscaler). Include scale-down cooldown period (5-10 min) to avoid thrashing. Monitor scaling events and adjust policies. Test scaling behavior under load. Ensure health checks are accurate. Consider predictive scaling for predictable patterns.
+**Kubernetes load balancing example:**
+
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: order-service
+spec:
+  selector:
+    app: order-service
+  type: ClusterIP
+  sessionAffinity: None  # Disable sticky sessions
+  sessionAffinityConfig:
+    clientIP:
+      timeoutSeconds: 10800
+  ports:
+    - port: 80
+      targetPort: 8080
+  loadBalancerAlgorithm: leastconn  # Use least-connections
+```
+
+**Monitoring:**
+
+```
+Per-instance metrics:
+- Instance A: 50% CPU, 8K req/sec
+- Instance B: 25% CPU, 4K req/sec ← Uneven!
+- Instance C: 75% CPU, 12K req/sec
+
+Action: Check if Instance B is slow, remove from pool, rebalance
+```
 
 ---
 
-## Latency Optimization
+## Q: A database becomes the bottleneck. How do you optimize?
 
-Reducing end-to-end response times.
+### Answer
 
-??? question "How do you reduce tail latency in distributed systems?"
-    Implement request hedging — send request to multiple replicas, use fastest response. Use timeouts aggressively to avoid hanging requests. Optimize hot paths with caching and async processing. Batch requests where possible. Use CDNs for static assets. Implement connection pooling. Monitor percentiles (p95, p99) not just averages. Profile services to identify slow code paths. Use correlation analysis to find cascading latency.
+**Optimization hierarchy:**
 
-??? question "Your microservices calls create waterfall latency. How will you parallelize requests?"
-    Redesign APIs to support batch requests or single-call returns. Use async/await patterns to parallelize independent calls. Implement request aggregation at API Gateway layer. Use GraphQL or gRPC for efficient data fetching. Cache intermediate results. Consider redesigning domain boundaries to reduce cross-service calls. Use eventual consistency where strict consistency isn't needed. Profile before and after to measure improvements.
+```
+1. Query optimization
+   - Add indexes, use EXPLAIN
+   - Avoid N+1 queries
+   - Batch operations
+
+2. Caching
+   - Redis for hot data
+   - Cache-aside pattern
+   - Invalidation strategy
+
+3. Read replicas
+   - Offload reads to read-only followers
+   - Trade consistency for throughput
+
+4. Sharding
+   - Partition by tenant or key
+   - Requires app-level routing
+```
+
+**Query optimization checklist:**
+
+```sql
+-- BEFORE (slow):
+SELECT o.* FROM orders o
+WHERE o.customer_id = ?;
+-- No index → table scan
+
+-- AFTER (fast):
+CREATE INDEX idx_orders_customer_id ON orders(customer_id);
+-- Now uses index → O(log N)
+
+-- EXPLAIN shows:
+Index Seek (good) vs Table Scan (bad)
+```
+
+**Caching pattern:**
+
+```java
+@Cacheable(value = "products", key = "#productId")
+public Product getProduct(String productId) {
+    // Only called if cache miss
+    return productRepository.findById(productId).orElseThrow();
+}
+
+@CacheEvict(value = "products", key = "#productId")
+public void updateProduct(String productId, Product update) {
+    productRepository.save(update);
+}
+```
+
+**Read replica routing:**
+
+```java
+@Repository
+public class OrderRepository {
+    
+    // Write to primary
+    public Order save(Order order) {
+        return primaryDataSource.save(order);
+    }
+    
+    // Read from replica
+    public Optional<Order> findById(String id) {
+        return replicaDataSource.findById(id);
+    }
+}
+```
 
 ---
 
-## Caching Strategies
+## Q: A sudden traffic spike crashes services. How do you scale and stabilize?
 
-Implementing effective caching at multiple layers.
+### Answer
 
-??? question "How do you design an effective caching strategy?"
-    Identify hot data (most frequently accessed, cheapest to recompute). Use caching layers: L1 (in-process), L2 (Redis), L3 (CDN). Implement cache invalidation: TTL-based, event-based, or manual. Monitor cache hit rates (target 80%+). Use cache warming for cold starts. Implement circuit breaker for cache failures. Design fallback path if cache misses. Monitor memory usage and eviction rates. Consider distributed caching vs local caching trade-offs.
+**Multi-layer response:**
 
-??? question "When should you NOT use caching?"
-    Avoid caching for: real-time data (stock prices), highly mutable data, small datasets (faster to recompute). Don't cache if validation is expensive. Skip cache if memory is constrained. Avoid for user-specific data with privacy concerns (harder to invalidate safely). Don't cache if consistency is critical (medical/financial data). Be cautious with cross-regional caching (replication lag). Consider simpler approaches first (optimize queries, indexes).
+```
+Spike detected (CPU > 80%, errors rising)?
+├─ Immediate (< 1 sec)
+│  ├─ Rate limiting: reject new requests
+│  ├─ Load shedding: drop low-priority traffic
+│  └─ Circuit breaker: stop calling failing services
+├─ Short-term (10-60 sec)
+│  ├─ Auto-scaling: spin up new pods
+│  ├─ Message queue: buffer requests
+│  └─ Cache: serve stale data
+└─ Long-term (> 1 min)
+   ├─ Database optimization
+   ├─ Code profiling & optimization
+   └─ Infrastructure changes
+```
+
+**Kubernetes auto-scaling:**
+
+```yaml
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: order-service-hpa
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: order-service
+  minReplicas: 3
+  maxReplicas: 20
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 80
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 30
+      policies:
+        - type: Percent
+          value: 100  # Double replicas
+          periodSeconds: 30
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+        - type: Percent
+          value: 50   # Reduce by 50%
+          periodSeconds: 60
+```
 
 ---
 
-## Diagram
+## Diagram — Complete Scaling Architecture
 
 ```mermaid
 graph LR
-    Client["Client"]
-    LB["Load Balancer"]
-    Gateway["API Gateway · Cache"]
-    Service1["Service 1"]
-    Service2["Service 2"]
-    Redis["Redis Cache · Hot Data"]
-    DB["Database · Read Replicas"]
-    Queue["Message Queue · Buffer"]
-
-    Client -->|Traffic Spike| LB
-    LB -->|Auto-scale| Gateway
-    Gateway -->|Cache Hit| Redis
-    Gateway -->|Parallelize| Service1
-    Gateway -->|Parallelize| Service2
-    Service1 -->|Read| DB
-    Service2 -->|Async| Queue
-    Queue -.->|Retry| Service2
-
-    style LB fill:#ff6b6b
-    style Gateway fill:#ff6b6b
-    style Redis fill:#51cf66
+    Traffic["Traffic Spike\n100x normal"]
+    RateLimit["Rate Limiter\n· Reject excess"]
+    Queue["Message Queue\n· Buffer requests"]
+    HPA["HPA\n· Scale 3→20 pods"]
+    Cache["Cache\n· Serve stale data"]
+    DB["Database\n· Read replicas"]
+    
+    Traffic -->|Phase 1: Block| RateLimit
+    Traffic -->|Phase 2: Queue| Queue
+    HPA -->|Phase 3: Scale| HPA
+    Cache -->|Phase 4: Degrade| Cache
+    DB -->|Phase 5: Distribute| DB
+    
+    style RateLimit fill:#ff6b6b
+    style Queue fill:#ffe066
+    style HPA fill:#51cf66
+    style Cache fill:#4ecdc4
 ```
 
 --8<-- "_abbreviations.md"

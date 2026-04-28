@@ -9,24 +9,53 @@ This site is a **practical interview guide** covering microservices design patte
 ## Topic Map
 
 ```mermaid
-graph LR
-    A["🛡️ Resilience · Fault Tolerance"]
-    B["🔗 Service Communication · gRPC · API Gateway"]
-    C["⚡ Performance · Scalability · Caching"]
-    D["📦 Data Consistency · Saga · Outbox"]
-    E["🔭 Observability · Tracing · Metrics"]
-    F["🚀 Deployment · Canary · Feature Flags"]
-    G["🧠 Advanced Patterns · CQRS · Event Sourcing"]
-    H["🔐 Security · OAuth2 · JWT · mTLS"]
-    I["☁️ Spring Cloud · Resilience4j · Feign"]
-    J["🐳 Containers · Kubernetes · Service Mesh"]
-    K["🏗️ Architecture · DDD · Strangler Fig"]
-    L["🔁 CI/CD · Team Leadership · Incidents"]
-
-    A --> B --> C --> D
-    D --> E --> F --> G
-    G --> H --> I --> J
-    J --> K --> L
+mindmap
+  root((Microservices\nArchitect\nPlaybook))
+    Fundamentals
+      Resilience and Fault Tolerance
+        Circuit Breaker
+        Bulkhead
+        Fallback
+      Service Communication
+        gRPC vs REST
+        API Gateway
+        Idempotency
+    Scalability and Data
+      Performance and Scalability
+        Latency · Auto-scaling
+        Caching Strategies
+      Data Consistency
+        Saga Pattern
+        Transactional Outbox
+        Eventual Consistency
+    Operations
+      Observability
+        Distributed Tracing
+        Centralized Logging
+        Metrics and Alerting
+      Deployment
+        Canary · Blue-Green
+        Feature Flags
+        API Versioning
+    Architect Level
+      Security
+        OAuth2 and JWT
+        mTLS · Zero Trust
+      Spring Cloud
+        WebClient · Feign
+        Config Server
+      Kubernetes
+        Docker Best Practices
+        Secrets Management
+        Service Mesh
+      Architecture Patterns
+        Strangler Fig
+        DDD · Bounded Context
+        Sidecar · Outbox
+      CI-CD and Team
+        Jenkins Pipeline
+        Tech Debt Strategy
+        Incident Handling
 ```
 
 ---

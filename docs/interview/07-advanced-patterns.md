@@ -1,101 +1,297 @@
 # Advanced Patterns — Microservices Interview
 
-> **Level:** Advanced
-> **Section:** [Microservices Interview Guide](../index.md)
+> **Target:** Senior Engineer · Engineering Lead · Pre-Architect
+> **Focus:** CQRS, Event Sourcing, async APIs, saga patterns, DDD
 
 ---
 
-## CQRS & Event Sourcing
+## Q: What is CQRS (Command Query Responsibility Segregation)?
 
-Advanced patterns for complex domains.
+*Why interviewers ask this:* CQRS is powerful but adds complexity. Tests understanding of trade-offs and when to apply it.
 
-??? question "What is CQRS (Command Query Responsibility Segregation)?"
-    CQRS separates read and write operations into different models. Commands modify state (create order). Queries read from optimized read model (list orders). Decouple command processing from query response. Use event sourcing with CQRS: commands generate events, events update both command and read stores. Benefits: independent scaling of reads/writes, optimized data models for each. Complexity: eventual consistency between read/write models, debugging harder. Use CQRS for: complex domains, high read/write mismatch, complex queries.
+### Answer
 
-??? question "What is Event Sourcing?"
-    Event sourcing stores all state changes as immutable events. Application state reconstructed by replaying events. Benefits: audit trail, temporal queries, debugging. Challenges: event schema evolution, eventual consistency. Use with event store (EventStoreDB, Kafka). Implement snapshotting for performance. Design events to be domain-agnostic. Version events for schema evolution. Use CQRS to handle query complexity. Test event replay scenarios. Consider storage and processing complexity.
+**CQRS separates read and write models:**
 
-??? question "How do you handle schema evolution in Event Sourcing?"
-    Design events to be self-describing with version field. Implement event upcasters to transform old events. Deploy upcasters before publishing new events. Never remove old event handlers. Implement versioning strategy (e.g., UserCreatedV1, UserCreatedV2). Use event transformations at read side (projections). Document event evolution. Test event migration thoroughly. Consider using JSON schema for event validation. Use semantic versioning for events.
+```
+Traditional:
+User → API → Database (all ops)
+          ↑ (read after write)
+
+CQRS:
+Commands (write):
+User → CreateOrder → Order Database (normalized, transactional)
+
+Queries (read):
+User → SearchOrders → Search Index (denormalized, optimized)
+                    → Cache (Redis)
+                    → Analytics DB
+```
+
+**Benefits:**
+- Independent scaling (10x read traffic → scale read model only)
+- Optimized data shapes per use case
+- Event sourcing + audit trail
+
+**Trade-offs:**
+- More complex (two data stores to sync)
+- Eventual consistency (queries lag writes by milliseconds)
+- Harder debugging
+
+**Example — Order management:**
+
+```java
+// WRITE SIDE (commands)
+@Service
+public class CreateOrderCommandHandler {
+    public void handle(CreateOrderCommand cmd) {
+        Order order = new Order(cmd.orderId, cmd.customerId, cmd.amount);
+        orderRepository.save(order);
+        
+        // Publish event for consistency
+        eventBus.publish(new OrderCreatedEvent(cmd.orderId, cmd.customerId));
+    }
+}
+
+// READ SIDE (queries)
+@Service
+public class OrderQueryService {
+    @Autowired
+    private OrderSearchIndex searchIndex;  // Elasticsearch
+    
+    public List<Order> findOrdersByCustomer(String customerId) {
+        return searchIndex.query("customer_id:" + customerId);
+    }
+}
+
+// Sync the two sides
+@KafkaListener(topics = "order-events")
+public void onOrderCreated(OrderCreatedEvent event) {
+    // Update read model when write model changes
+    searchIndex.index(new OrderSearchDocument(event.orderId, event.customerId));
+}
+```
+
+!!! warning "Common Mistake"
+    Don't use CQRS for simple CRUD apps. Start with traditional models, add CQRS only when you have truly different read/write patterns.
 
 ---
 
-## Asynchronous APIs & Streaming
+## Q: What is Event Sourcing?
 
-Handling async operations and data streams.
+### Answer
 
-??? question "Your API responses become inconsistent due to async processing. How will you handle it?"
-    Design APIs to return task IDs for async operations and provide status endpoints. Implement eventual consistency patterns explicitly. Use event sourcing to maintain consistent state. Implement polling or webhooks for result notification. Cache responses with appropriate TTLs. Design APIs to clarify what is synchronous vs async. Implement idempotent result retrieval. Use state machines to track async operation state. Provide way to query operation result. Document async behavior clearly.
+**Event Sourcing stores all state changes as immutable events:**
 
-??? question "How do you implement webhooks for async notifications?"
-    Design webhook payload with operation result and metadata. Implement retry logic for webhook delivery (exponential backoff). Support webhook signature verification (HMAC). Allow clients to register webhook endpoints. Implement webhook management API (list, update, delete). Store webhook delivery logs for debugging. Implement circuit breaker for failing webhook endpoints. Support webhook filtering (events to subscribe to). Monitor webhook delivery success rates. Consider using event streaming instead of webhooks for scale.
+```
+Traditional DB:
+orders = {id: 1, status: "SHIPPED", amount: 100}
 
-??? question "Should you implement request/response vs. publish/subscribe?"
-    Request/response: synchronous, immediate feedback, tightly coupled. Publish/subscribe: asynchronous, decoupled, eventual consistency. Use request/response for: critical, low-latency needs (payments). Use publish/subscribe for: high-volume events, decoupling, fault tolerance. Hybrid: use request/response for user-facing, async for backend. Consider latency, throughput, and coupling requirements. Implement both for resilience. Use service mesh for request/response resilience. Use message queues for publish/subscribe.
+Event Sourcing:
+events = [
+  {id: 1, type: "OrderCreated", amount: 100, timestamp: t1},
+  {id: 1, type: "PaymentProcessed", amount: 100, timestamp: t2},
+  {id: 1, type: "ShippingDispatched", timestamp: t3}
+]
+
+Order state = replay all events in order
+```
+
+**Benefits:**
+- Complete audit trail (who did what when)
+- Temporal queries (what was the state at time T?)
+- Replay for debugging
+- Natural fit for event-driven systems
+
+**Implementation:**
+
+```java
+@Service
+public class OrderEventStore {
+    
+    @Autowired
+    private EventRepository eventRepo;
+    
+    public void apply(OrderEvent event) {
+        // Immutable append-only log
+        eventRepo.append(event);
+    }
+    
+    public Order getOrderState(String orderId) {
+        // Reconstruct state by replaying events
+        List<OrderEvent> events = eventRepo.getEventsForAggregate(orderId);
+        Order order = new Order();
+        
+        for (OrderEvent event : events) {
+            order.apply(event);  // Mutate order by applying each event
+        }
+        
+        return order;
+    }
+}
+```
+
+**Event types:**
+
+```java
+public abstract class OrderEvent {
+    public String orderId;
+    public LocalDateTime timestamp;
+}
+
+public class OrderCreated extends OrderEvent {
+    public String customerId;
+    public BigDecimal amount;
+}
+
+public class PaymentProcessed extends OrderEvent {
+    public String paymentId;
+}
+
+public class OrderShipped extends OrderEvent {
+    public String trackingNumber;
+}
+```
 
 ---
 
-## Microservices Resilience Patterns
+## Q: How do you implement async APIs with webhooks?
 
-Advanced resilience techniques.
+### Answer
 
-??? question "How do you implement the bulkhead pattern?"
-    Isolate resources (thread pools, connections) per service to prevent resource exhaustion from cascading failures. Each service has dedicated thread pool (e.g., 10 threads). Limits: if one service is slow, only its thread pool is exhausted. Prevents cascading failures: other services unaffected. Implement with Java: ExecutorService per service, Hystrix/Resilience4j libraries. Monitor thread pool utilization. Design bulkheads for high-risk operations. Trade-off: unused threads if service is idle.
+**Webhook pattern for long-running operations:**
 
-??? question "When should you implement timeout vs. deadline propagation?"
-    Timeout: maximum time to wait for response (local to service). Deadline: absolute time when result is no longer useful (propagated across services). Use deadline propagation in microservices: propagate deadline through chain. Use timeout as safety net: deadline + buffer. Configure timeout < deadline. For cascading calls: each hop reduces remaining deadline. Monitor timeouts vs. deadlines. Test timeout behavior. Implement graceful degradation when approaching deadline. Use both for comprehensive timeout handling.
+```
+Client request:
+POST /api/reports/generate
+{
+  "format": "pdf",
+  "webhook": "https://client.com/webhook"
+}
 
-??? question "How do you implement graceful degradation?"
-    Detect when system is approaching capacity. Reduce functionality: return partial results, disable non-critical features. Shed load: reject low-priority requests. Degrade quality: lower resolution, less data. Use feature flags to disable features. Implement priority tiers for requests. Design APIs to support degradation. Test degradation paths. Monitor degradation events. Communicate degradation to users. Implement recovery: gradually restore functionality as load decreases.
+Response (async):
+202 Accepted
+{
+  "requestId": "req-123",
+  "status": "processing"
+}
+
+(Server processes asynchronously...)
+
+Server callback (webhook):
+POST https://client.com/webhook
+{
+  "requestId": "req-123",
+  "status": "completed",
+  "result": "s3://bucket/report.pdf"
+}
+```
+
+**Implementation:**
+
+```java
+@PostMapping("/reports/generate")
+public ResponseEntity<AsyncResponse> generateReport(
+        @RequestBody ReportRequest req) {
+    String requestId = UUID.randomUUID().toString();
+    
+    // Queue async work
+    reportQueue.send(new GenerateReportJob(requestId, req));
+    
+    // Return immediately
+    return ResponseEntity.accepted().body(
+        new AsyncResponse(requestId, "processing")
+    );
+}
+
+@KafkaListener(topics = "report-jobs")
+public void processReport(GenerateReportJob job) {
+    try {
+        Report report = generatePDF(job.request);
+        String s3Url = uploadToS3(report);
+        
+        // Call client's webhook
+        httpClient.post(job.webhookUrl, new WebhookPayload(
+            job.requestId, "completed", s3Url
+        ));
+    } catch (Exception e) {
+        // Retry webhook if it fails
+        retryQueue.send(new WebhookRetry(job.webhookUrl, ...));
+    }
+}
+```
+
+**Webhook reliability:**
+
+- Implement retry logic (exponential backoff)
+- Sign webhooks (HMAC for verification)
+- Include idempotency keys (client deduplicates)
+- Timeout after max retries
 
 ---
 
-## Domain-Driven Design for Microservices
+## Q: How do you decompose a monolith using Domain-Driven Design?
 
-Organizing services around business domains.
+### Answer
 
-??? question "How does Domain-Driven Design (DDD) help with microservices?"
-    DDD provides tools to partition large system into bounded contexts. Bounded context = microservice boundary. Ubiquitous language = shared terminology within context. Reduces coupling between services. Aligns microservices with business organization. Better design of service contracts. Reduces cross-service calls. Easier to scale and evolve services independently. Complexity: requires deep understanding of domain. Requires collaboration with domain experts.
+**DDD gives you the map:**
 
-??? question "What are anti-corruption layers and when do you use them?"
-    Anti-corruption layer (ACL) isolates your service from legacy systems or external APIs. Translates external models to internal domain models. Prevents external changes from cascading. Centralizes integration logic. Useful for: legacy system integration, third-party API dependencies, different bounded contexts. Implement as wrapper service or adapter. Use ACL to maintain clean domain model. Can become bottleneck if overused. Document translation rules clearly.
+```
+1. Event storming (with domain experts)
+   → Identify all domain events
+   
+2. Find bounded contexts (natural domain boundaries)
+   → Order context, Payment context, Shipping context
+   
+3. Define each microservice
+   → One service per bounded context
+   
+4. Identify anti-corruption layers
+   → Legacy system → [ACL] → Modern service
+```
+
+**E-commerce example:**
+
+| Bounded Context | Service | Entities |
+|-----------------|---------|----------|
+| Order | order-service | Order, LineItem, OrderStatus |
+| Payment | payment-service | Payment, Transaction, Refund |
+| Inventory | inventory-service | Product, Stock, Reservation |
+| Shipping | shipping-service | Shipment, Carrier, TrackingEvent |
+| Catalog | catalog-service | Product, Category, Price |
+
+**Communication between contexts:**
+
+```
+OrderContext uses OrderPlaced event
+  ↓
+PaymentContext listens & processes
+  ↓
+PaymentProcessed event
+  ↓
+InventoryContext reserves stock
+```
 
 ---
 
-## Saga Orchestration Patterns
-
-Advanced saga patterns for complex workflows.
-
-??? question "When should you use choreography vs. orchestration sagas?"
-    Choreography: services react to events, decoupled. Good for: simple workflows, eventual consistency acceptable. Problems: difficult to understand flow, testing harder, implicit dependencies. Orchestration: central coordinator, explicit flow. Good for: complex workflows, need control, debugging. Problems: coordinator becomes bottleneck, single point of failure. Hybrid: orchestration for critical paths, choreography for notifications. Start with choreography for simplicity, evolve to orchestration if needed.
-
-??? question "How do you handle long-running sagas?"
-    Implement saga state machine: track current step, retries, compensations. Store saga state in database. Implement timeouts for stuck sagas (detect, retry, or escalate). Design compensating transactions for rollback. Use correlation IDs for tracking. Implement monitoring and alerting. Consider breaking into smaller sagas if too long. Use async messaging between steps. Test failure scenarios thoroughly. Monitor saga completion rates and failures. Document saga flow visually.
-
----
-
-## Diagram
+## Diagram — Event-Driven CQRS + Event Sourcing
 
 ```mermaid
 graph LR
-    Client["Client · Request"]
-    Orchestrator["Saga Orchestrator"]
-    Service1["Service A · Command"]
-    Service2["Service B · Command"]
-    Service3["Service C · Command"]
-    EventStore["Event Store · State"]
+    Cmd["Commands\nCreateOrder"]
+    Write["Write Side\nOrder Service"]
+    Events["Event Store\nAll events\nAppend-only"]
+    Read["Read Side\nSearch Index\nCache"]
+    Query["Queries\nFindOrders"]
     
-    Client -->|Start Saga| Orchestrator
-    Orchestrator -->|Command 1| Service1
-    Service1 -->|Event · Success| EventStore
-    Orchestrator -->|Command 2| Service2
-    Service2 -->|Event · Fail| EventStore
-    Orchestrator -->|Compensate| Service1
-    Orchestrator -->|Compensate| Service2
-    EventStore -->|State| Orchestrator
+    Cmd --> Write
+    Write -->|OrderCreated| Events
+    Events -->|onOrderCreated| Read
+    Query --> Read
     
-    style Orchestrator fill:#4ecdc4
-    style EventStore fill:#51cf66
+    style Write fill:#4ecdc4
+    style Events fill:#51cf66
+    style Read fill:#ffe066
 ```
 
 --8<-- "_abbreviations.md"

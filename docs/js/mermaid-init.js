@@ -1,22 +1,22 @@
 document.addEventListener('DOMContentLoaded', function () {
-  if (typeof mermaid !== 'undefined') {
-    mermaid.initialize({ startOnLoad: false, theme: 'default', securityLevel: 'loose' });
+  // Wait until mermaid is fully loaded from CDN, then render all diagrams
+  function initMermaid() {
+    if (typeof mermaid === 'undefined') {
+      setTimeout(initMermaid, 50); // Poll until CDN script is ready
+      return;
+    }
 
-    document.querySelectorAll('div.highlight pre').forEach(function (pre) {
-      const code = pre.textContent.trim();
-      const mermaidKeywords = ['graph', 'sequenceDiagram', 'classDiagram',
-        'stateDiagram', 'erDiagram', 'journey', 'gitGraph', 'pie', 'requirement'];
-
-      if (mermaidKeywords.some(kw => code.startsWith(kw))) {
-        const diagram = document.createElement('div');
-        diagram.className = 'mermaid';
-        diagram.textContent = code;
-        pre.parentElement.replaceWith(diagram);
-      }
+    mermaid.initialize({
+      startOnLoad: false,
+      theme: 'default',
+      securityLevel: 'loose'
     });
 
-    if (window.mermaid && window.mermaid.contentLoaded) {
-      mermaid.contentLoaded();
+    const nodes = document.querySelectorAll('pre.mermaid, code.mermaid, .mermaid');
+    if (nodes.length > 0) {
+      mermaid.run({ nodes: Array.from(nodes) });
     }
   }
+
+  initMermaid();
 });
