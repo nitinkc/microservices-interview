@@ -1,0 +1,65 @@
+/* Custom styles for microservices-interview docs */
+
+/* Glossary abbreviation tooltips */
+abbr[title] {
+  cursor: help;
+  text-decoration: underline dotted 2px;
+  text-decoration-color: #0077cc;
+  text-underline-offset: 3px;
+  font-weight: 500;
+  border-bottom: 2px dotted #0077cc;
+  position: relative;
+  display: inline-block;
+}
+
+/* Hover effect for abbreviation */
+abbr[title]:hover {
+  background-color: rgba(0, 119, 204, 0.15);
+  border-radius: 3px;
+  padding: 0 2px;
+}
+
+
+/* JavaScript-generated tooltip styling */
+.custom-tooltip {
+  background-color: #1a1a1a;
+  color: #ffffff;
+  padding: 8px 12px;
+  border-radius: 4px;
+  font-size: 13px;
+  max-width: 250px;
+  word-wrap: break-word;
+  z-index: 9999;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  border: 1px solid #0077cc;
+  font-weight: normal;
+  pointer-events: none;
+  white-space: normal;
+}
+
+/* Dark mode for JavaScript tooltip */
+[data-md-color-scheme="slate"] .custom-tooltip {
+  background-color: #2a2a2a;
+  color: #e0e0e0;
+  border-color: #5eb3f6;
+}
+
+/* Admonition tweaks */
+.admonition {
+  border-radius: 4px;
+}
+
+/* Table alignment */
+table {
+  width: 100%;
+}
+
+th, td {
+  text-align: left !important;
+}
+
+/* Code block line numbers */
+.highlight .ln {
+  color: #aaa;
+  user-select: none;
+}

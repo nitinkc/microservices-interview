@@ -1,0 +1,79 @@
+site_name: Microservices Interview Guide
+site_description: A progressive interview preparation guide covering microservices architecture, resilience patterns, service communication, observability, and distributed systems design.
+site_author: sgovinda
+
+theme:
+  name: material
+  palette:
+    - scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+    - scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
+
+plugins:
+  - search
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets:
+      base_path: docs
+      check_paths: true
+  - pymdownx.tabbed:
+      alternate_style: true
+  - attr_list
+  - md_in_html
+  - tables
+  - footnotes
+  - def_list
+  - abbr
+  - pymdownx.arithmatex:
+      generic: true
+
+extra_javascript:
+  - https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js
+  - https://unpkg.com/mermaid@10/dist/mermaid.js
+  - js/mermaid-init.js
+  - js/mathjax.js
+  - https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js
+  - js/theme-toggle.js
+  - js/abbr-tooltip.js
+
+extra_css:
+  - css/extra.css
+
+nav:
+  - Home: index.md
+
+  - "Fundamentals":
+    - "01 · Resilience & Fault Tolerance": interview/01-microservices-resilience.md
+    - "02 · Service Communication": interview/02-service-communication.md
+
+  - "Scalability & Data":
+    - "03 · Performance & Scalability": interview/03-performance-scalability.md
+    - "04 · Data Consistency & Idempotency": interview/04-data-consistency.md
+
+  - "Operations":
+    - "05 · Observability & Debugging": interview/05-observability.md
+    - "06 · Deployment & Compatibility": interview/06-deployment-compatibility.md
+
+  - "Architect Level":
+    - "07 · Advanced Patterns": interview/07-advanced-patterns.md
+    - "08 · Security & Resilience4j": interview/08-security.md
+    - "09 · Spring Cloud & Frameworks": interview/09-spring-cloud.md
+    - "10 · Containers & Kubernetes": interview/10-kubernetes-containers.md
+    - "11 · Architecture & Design Patterns": interview/11-architecture-patterns.md
+    - "12 · CI/CD & Team Leadership": interview/12-cicd-team.md
+
