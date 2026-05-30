@@ -11,12 +11,11 @@ theme:
     - navigation.tabs
     - navigation.sections
     - navigation.expand
-    - toc.integrate
+#    - toc.integrate
     - content.code.copy
     - search
     - search.highlight
     - search.suggest
-
 
   palette:
     - scheme: default

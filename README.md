@@ -47,10 +47,6 @@ This is an MkDocs-based documentation site organized into 7 topic sections with 
 
 ### Installation
 
-1. **Clone the repository:**
-```bash
-cd /Users/sgovinda/Learn/microservicesInterview
-```
 
 2. **Create a virtual environment:**
 ```bash
