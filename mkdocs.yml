@@ -1,9 +1,23 @@
 site_name: Microservices Interview Guide
 site_description: A progressive interview preparation guide covering microservices architecture, resilience patterns, service communication, observability, and distributed systems design.
-site_author: sgovinda
+site_author: Nitin Chaurasia
+docs_dir: docs
+repo_url:  https://github.com/nitinkc/microservices-interview
+
 
 theme:
   name: material
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.expand
+    - toc.integrate
+    - content.code.copy
+    - search
+    - search.highlight
+    - search.suggest
+
+
   palette:
     - scheme: default
       primary: indigo
@@ -60,23 +74,33 @@ extra_css:
 nav:
   - Home: index.md
 
-  - "Fundamentals":
+  - "Microservices Fundamentals":
     - "01 · Resilience & Fault Tolerance": interview/01-microservices-resilience.md
     - "02 · Service Communication": interview/02-service-communication.md
 
-  - "Scalability & Data":
+  - "Microservices Scalability & Data":
     - "03 · Performance & Scalability": interview/03-performance-scalability.md
     - "04 · Data Consistency & Idempotency": interview/04-data-consistency.md
 
-  - "Operations":
+  - "Microservices Operations":
     - "05 · Observability & Debugging": interview/05-observability.md
     - "06 · Deployment & Compatibility": interview/06-deployment-compatibility.md
 
-  - "Architect Level":
+  - "Microservices Architect Level":
     - "07 · Advanced Patterns": interview/07-advanced-patterns.md
     - "08 · Security & Resilience4j": interview/08-security.md
     - "09 · Spring Cloud & Frameworks": interview/09-spring-cloud.md
     - "10 · Containers & Kubernetes": interview/10-kubernetes-containers.md
     - "11 · Architecture & Design Patterns": interview/11-architecture-patterns.md
     - "12 · CI/CD & Team Leadership": interview/12-cicd-team.md
+
+  - "Java & Spring Boot":
+    - "13 · Java Core Anti-Cheat": interview/13-java-core-anti-cheat.md
+    - "14 · Java 21 Design Patterns": interview/14-java21-design-patterns.md
+    - "15 · Spring Boot Microservices Basics": interview/15-spring-boot-microservices-basics.md
+    - "16 · Spring Boot Anti-Cheat": interview/16-spring-boot-anti-cheat.md
+    - "17 · Spring Boot Architecture Blueprint": interview/17-spring-boot-architecture-blueprint.md
+
+  - "Master Scenario Pack":
+    - "18 · Microservices Critical Thinking": interview/18-microservices-critical-thinking.md
 
