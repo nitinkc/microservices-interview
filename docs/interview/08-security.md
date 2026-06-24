@@ -91,15 +91,18 @@ graph LR
 Service-to-service calls should be authenticated and encrypted. Three common patterns:
 
 **Option 1 — mTLS (Mutual TLS)** ✅ Recommended for zero-trust
+
 - Both client and server present certificates
 - Each service has its own identity (SPIFFE/SVID)
 - Automated with a service mesh (Istio, Linkerd)
 
 **Option 2 — Shared secret / API keys**
+
 - Simple but hard to rotate at scale
 - Not recommended for production microservices
 
 **Option 3 — Service accounts with OAuth2 Client Credentials**
+
 - Service authenticates with Auth Server using `client_id` + `client_secret`
 - Receives token scoped to service-to-service calls
 - Token included in each request
@@ -140,6 +143,7 @@ spec:
 ### Answer
 
 **CSRF (Cross-Site Request Forgery):**
+
 - Attack where malicious site tricks browser into sending authenticated request to your API
 - **CSRF protection is only needed when the browser automatically sends credentials** (session cookies)
 - Stateless REST APIs using JWT in `Authorization` header are **not vulnerable** — the browser doesn't auto-send the header
@@ -187,6 +191,7 @@ public class CorsConfig {
 ### Answer
 
 Spring Cloud Gateway sits at the edge and can enforce:
+
 - JWT validation before routing
 - Role/scope-based route access
 - Rate limiting per user/IP
@@ -198,11 +203,14 @@ spring:
   cloud:
     gateway:
       routes:
+
         - id: admin-route
           uri: lb://admin-service
           predicates:
+
             - Path=/api/admin/**
           filters:
+
             - name: RequestRateLimiter
               args:
                 redis-rate-limiter.replenishRate: 10
@@ -211,6 +219,7 @@ spring:
         - id: public-route
           uri: lb://catalog-service
           predicates:
+
             - Path=/api/catalog/**
 ```
 
@@ -289,6 +298,7 @@ resilience4j:
         waitDuration: 500ms
         exponentialBackoffMultiplier: 2  # 500ms, 1s, 2s
         retryExceptions:
+
           - org.springframework.web.client.HttpServerErrorException
 
   timelimiter:

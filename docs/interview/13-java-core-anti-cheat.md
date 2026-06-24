@@ -4,11 +4,13 @@
 ---
 
 ## Ground Rules for the Interviewer
+
 - Ask the candidate to **predict the output first**, then explain why.
 - Follow up with *"What would you change to fix / alter the behaviour?"*
 - If they copy-paste to AI, the answer alone won't save them — the *follow-up* will expose gaps.
 
 ## Difficulty Progression
+
 - **Basics:** language fundamentals, equality, object lifecycle, collections
 - **Intermediate:** generics, control flow edge cases, interface defaults, stream pitfalls
 - **Advanced:** concurrency, memory model, API design contracts, Effective Java style trade-offs
@@ -34,6 +36,7 @@ public class Test1 {
 **Question:** Why doesn't it print `Hello World`?
 
 **Key Points:**
+
 - `String` is immutable; `concat()` returns a *new* `String` — the original reference `s` is unchanged.
 - Fix: `s = s.concat(" World");`
 
@@ -69,6 +72,7 @@ true
 **Question:** Why is `a == b` true but `a == c` false, even though all three contain `"Java"`?
 
 **Key Points:**
+
 - String literals are interned — `a` and `b` point to the same pool object.
 - `new String(...)` always creates a new heap object, bypassing the pool.
 - `==` compares references; `.equals()` compares content.
@@ -101,6 +105,7 @@ public class Test3 {
 **Question:** The runtime object is a `Child`, so why does it print `Parent Number` instead of `Child Integer`?
 
 **Key Points:**
+
 - Method overloading is resolved at **compile time** based on the *declared* (static) type of the reference (`Parent`).
 - `Parent` has no `show(Integer)` — only `show(Number)`. So the compiler binds to `show(Number)`.
 - Dynamic dispatch (polymorphism) only applies to *overridden* methods (same signature).
@@ -136,6 +141,7 @@ false
 **Question:** Both pairs are autoboxed from `int` literals — why does `==` give different results?
 
 **Key Points:**
+
 - JVM caches `Integer` objects for values **-128 to 127**. `a` and `b` share the cached instance.
 - Values outside this range create new objects, so `c != d` by reference.
 - Safe comparison always uses `.equals()` or unboxing.
@@ -169,6 +175,7 @@ public class Test5 {
 **Question:** Why does `List<Integer>` not assign to `List<Number>` even though `Integer extends Number`?
 
 **Key Points:**
+
 - Generics are **invariant** in Java. `List<Integer>` is NOT a subtype of `List<Number>`.
 - If it were allowed, you could add a `Double` through a `List<Number>` reference, corrupting a `List<Integer>`.
 - `? extends Number` is a **bounded wildcard** — read-only (no `add()`).
@@ -213,6 +220,7 @@ constructor
 **Question:** Why does `static init` print before `main start`?
 
 **Key Points:**
+
 - Static initialisers run **once** when the class is first loaded by the JVM, before `main()` executes.
 - Instance constructors run each time `new` is called.
 
@@ -247,6 +255,7 @@ public class Test7 {
 **Question:** The `try` block explicitly returns `1`. Why does the method return `2`?
 
 **Key Points:**
+
 - `finally` **always** executes, even after a `return` in `try`.
 - A `return` inside `finally` **overrides** the `return` in `try`.
 - This is considered bad practice — it silently swallows the `try` return value.
@@ -279,6 +288,7 @@ true
 **Question:** `instanceof` returns `false` for `null` — is that a bug or by design?
 
 **Key Points:**
+
 - `null instanceof T` is **always false** by spec — `null` has no type.
 - This is useful: `if (obj instanceof String)` is null-safe without a separate null check.
 - `s.equals(...)` would throw `NullPointerException`.
@@ -311,6 +321,7 @@ public class Test9 {
 **Question:** Does this compile? If not, how do you fix it?
 
 **Key Points:**
+
 - This is a **compile error** — `C` inherits conflicting default methods from `A` and `B`.
 - `C` **must** override `hello()` to resolve the ambiguity.
 - Can delegate explicitly: `return B.super.hello();`
@@ -341,6 +352,7 @@ public class Test10 {
 **Question:** Does this compile? If yes, which overload is called?
 
 **Key Points:**
+
 - This is a **compile error** — the compiler cannot choose between `int...` and `Integer...` when given `int` literals (autoboxing makes both equally valid).
 - Varargs overloads with autoboxing candidates are ambiguous.
 
@@ -375,6 +387,7 @@ public class Test11 {
 **Question:** Can a `HashMap` have `null` as a key? What happens when you insert it twice?
 
 **Key Points:**
+
 - `HashMap` allows **one** `null` key; the second `put` overwrites the first.
 - `Hashtable` and `ConcurrentHashMap` do **not** allow `null` keys — throws `NullPointerException`.
 
@@ -405,6 +418,7 @@ public class Test12 {
 **Question:** What does `volatile` guarantee here? Would this work without `volatile`?
 
 **Key Points:**
+
 - `volatile` ensures **visibility** — writes are immediately flushed to main memory; reads always fetch from main memory.
 - Without `volatile`, the JIT may cache `flag` in a CPU register — the thread might spin forever.
 - `volatile` does **not** guarantee **atomicity** (e.g., `flag++` is still a race condition).
@@ -772,6 +786,7 @@ public class Q12 {
 ---
 
 # Extra practice prompts (no code)
+
 - Explain the **difference between checked and unchecked exceptions**.
 - Explain the **contract** between `equals()` and `hashCode()`.
 - When would you prefer `ConcurrentHashMap` over `Collections.synchronizedMap`?
@@ -780,6 +795,7 @@ public class Q12 {
 ---
 
 ## Suggested daily routine
+
 - **Day 1–2:** Exceptions + Collections
 - **Day 3–4:** Streams + Lambdas + Optional
 - **Day 5:** Threads + concurrency pitfalls
@@ -794,6 +810,7 @@ public class Q12 {
 > **Note:** This is **not** a copy of the book. It’s an original practice pack.
 
 ## How to use this pack
+
 - For each snippet: **predict the output**, then explain **why**, then propose the **Effective Java–style fix**.
 - Practice answering in **60–90 seconds** per question.
 
@@ -812,6 +829,7 @@ final class Score {
 }
 ```
 **Ask:** What benefits does `of()` enable that a constructor can’t easily?
+
 - Named creation, caching, returning subtypes, hiding implementation.
 
 ---
@@ -1171,6 +1189,7 @@ public class Q17 {
 ---
 
 ## Mini-checklist (what interviewers listen for)
+
 - You mention **contracts** (equals/hashCode/compareTo), **immutability**, **encapsulation**, **composition**, **generics safety**, and **concurrency visibility**.
 - You propose fixes that improve **readability, correctness, and maintainability**.
 
@@ -1182,9 +1201,9 @@ public class Q17 {
 ---
 
 ## References (for further reading)
+
 - Effective Java (Joshua Bloch), 3rd edition.
 - Oracle JavaDocs: `Object.equals`, `Object.hashCode`, `AutoCloseable`.
 
 --8<-- "_abbreviations.md"
-
 

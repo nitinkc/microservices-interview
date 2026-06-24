@@ -106,13 +106,17 @@ spec:
     spec:
       serviceAccountName: order-service-sa   # Least privilege SA
       containers:
+
         - name: order-service
           image: myrepo/order-service:1.2.0
           ports:
+
             - containerPort: 8080
           env:
+
             - name: SPRING_PROFILES_ACTIVE
               value: "prod"
+
             - name: DB_PASSWORD
               valueFrom:
                 secretKeyRef:
@@ -153,6 +157,7 @@ spec:
   selector:
     app: order-service
   ports:
+
     - port: 80
       targetPort: 8080
   type: ClusterIP
@@ -170,6 +175,7 @@ spec:
   minReplicas: 3
   maxReplicas: 10
   metrics:
+
     - type: Resource
       resource:
         name: cpu
@@ -214,6 +220,7 @@ graph LR
 ### Answer
 
 **Kubernetes Secrets (built-in) — limitations:**
+
 - Base64 encoded, not encrypted at rest by default
 - Visible to anyone with cluster access
 - No rotation, no audit trail
@@ -255,6 +262,7 @@ spec:
   target:
     name: order-db-secret   # Creates K8s Secret
   data:
+
     - secretKey: password
       remoteRef:
         key: prod/order-service/db
@@ -291,25 +299,31 @@ spec:
     matchLabels:
       app: order-service
   policyTypes:
+
     - Ingress
     - Egress
   ingress:
+
     - from:
         - podSelector:
             matchLabels:
               app: api-gateway   # Only gateway can call order-service
       ports:
+
         - port: 8080
   egress:
+
     - to:
         - podSelector:
             matchLabels:
               app: inventory-service  # order-service can call inventory
       ports:
+
         - port: 8080
     - to:   # Allow DNS
         - namespaceSelector: {}
       ports:
+
         - port: 53
           protocol: UDP
 ```
@@ -358,12 +372,14 @@ graph LR
 **When to use a service mesh:**
 
 ✅ Use when:
+
 - You have 10+ services and maintaining resilience code in each is costly
 - You need zero-trust security (mTLS everywhere) as a compliance requirement
 - You need fine-grained traffic control (canary per service pair, fault injection for testing)
 - You want automatic observability without code instrumentation
 
 ❌ Skip when:
+
 - Small service count (< 10) — operational overhead outweighs benefits
 - Team unfamiliar with service mesh — steep learning curve (Istio especially)
 - Simple deployments — start with library-based resilience (Resilience4j) first

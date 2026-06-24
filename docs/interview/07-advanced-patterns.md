@@ -29,11 +29,13 @@ User → SearchOrders → Search Index (denormalized, optimized)
 ```
 
 **Benefits:**
+
 - Independent scaling (10x read traffic → scale read model only)
 - Optimized data shapes per use case
 - Event sourcing + audit trail
 
 **Trade-offs:**
+
 - More complex (two data stores to sync)
 - Eventual consistency (queries lag writes by milliseconds)
 - Harder debugging
@@ -98,6 +100,7 @@ Order state = replay all events in order
 ```
 
 **Benefits:**
+
 - Complete audit trail (who did what when)
 - Temporal queries (what was the state at time T?)
 - Replay for debugging

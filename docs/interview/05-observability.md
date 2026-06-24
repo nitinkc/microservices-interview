@@ -181,8 +181,10 @@ global:
   scrape_interval: 15s
 
 scrape_configs:
+
   - job_name: 'order-service'
     static_configs:
+
       - targets: ['localhost:8080']
     metrics_path: '/actuator/prometheus'
 ```
@@ -191,8 +193,10 @@ scrape_configs:
 
 ```yaml
 groups:
+
   - name: microservices
     rules:
+
       - alert: HighErrorRate
         expr: rate(http_requests_total{status=~"5.."}[5m]) > 0.01
         for: 5m
@@ -215,11 +219,13 @@ groups:
 
 ```
 Good alerts:
+
 - Based on SLO (Service Level Objective)
 - Actionable (on-call knows what to do)
 - Signal-to-noise > 90% (low false positives)
 
 Bad alerts:
+
 - CPU > 50% (constantly triggers)
 - Page 20 alerts per hour (meaningless)
 - "Something is wrong" with no context
@@ -232,10 +238,12 @@ SLO: 99.9% availability = 99.9% requests succeed
      = 0.001 error budget per day
      
 Alert if:
+
 - Error rate > 1% for 5+ minutes (burns budget too fast)
 - Error rate > 0.5% for 1+ minute (indicates trend)
 
 Don't alert on:
+
 - Error rate = 0% for 1 second (noise)
 - CPU = 60% (arbitrary threshold)
 ```
@@ -244,16 +252,19 @@ Don't alert on:
 
 ```
 CRITICAL (page on-call):
+
   - Service completely down
   - Error rate > 5%
   - Database unavailable
 
 WARNING (create ticket):
+
   - Error rate 1-5%
   - Latency p99 > 5s
   - Disk usage > 80%
 
 INFO (log only):
+
   - Warnings
   - Deprecation notices
 ```

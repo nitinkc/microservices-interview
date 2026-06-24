@@ -69,16 +69,20 @@ metadata:
   name: order-service
 spec:
   hosts:
+
     - order-service
   http:
+
     - match:
         - headers:
             user-id:
               regex: ".*-canary$"  # 10% of users
       route:
+
         - destination:
             host: order-service
             subset: v2
+
     - route:
         - destination:
             host: order-service
@@ -112,6 +116,7 @@ ALTER TABLE orders ADD COLUMN status VARCHAR(20) DEFAULT 'pending';
 
 Step 2: Deploy code that reads/writes status (old code ignores it)
 OrderService:
+
   - Write: both old and new columns
   - Read: check new column first, fall back to old
 

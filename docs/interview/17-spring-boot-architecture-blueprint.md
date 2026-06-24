@@ -6,14 +6,18 @@
 
 ## A) Core components (typical)
 1. **API Gateway**
+
    - TLS termination, rate limiting, authn/z, routing
 2. **Service Discovery** (optional if using Kubernetes)
 3. **Config management**
+
    - env vars / config server / secrets manager
 4. **Microservices** (domain services)
 5. **Async messaging**
+
    - Kafka/Rabbit; event-driven integration
 6. **Observability stack**
+
    - metrics (Prometheus), traces (Jaeger/Tempo), logs (ELK/Loki)
 
 ---
@@ -22,6 +26,7 @@
 ```
 controller -> application/service -> domain -> repository/clients
 ```
+
 - Keep domain logic outside adapters (controllers, persistence, HTTP clients).
 
 ---
@@ -32,6 +37,7 @@ Use for read queries and immediate responses.
 
 ### 2) Async (events)
 Use for:
+
 - integration between bounded contexts
 - eventual consistency
 - audit trails
@@ -40,16 +46,19 @@ Use for:
 
 ## D) Data consistency patterns
 ### Outbox pattern (must know)
+
 - Write business data + outbox event in **same DB transaction**.
 - A publisher reads outbox and publishes to broker.
 
 ### Saga pattern (must know)
+
 - Orchestration: a saga coordinator commands services.
 - Choreography: services publish events and react.
 
 ---
 
 ## E) Resilience defaults (starter settings)
+
 - Connect timeout: 200–500ms (internal)
 - Read timeout: p95 latency + margin
 - Retry: 0–2 with jitter (idempotent only)
@@ -59,19 +68,23 @@ Use for:
 
 ## F) Observability defaults
 ### 1) Health
+
 - `/actuator/health/liveness`
 - `/actuator/health/readiness`
 
 ### 2) Metrics
+
 - request latency histograms
 - JVM GC, heap, threads
 
 ### 3) Tracing
+
 - sample 1–10% in prod; 100% in dev
 
 ---
 
 ## G) API versioning & compatibility
+
 - Additive changes only, avoid breaking fields.
 - Use tolerant readers for JSON.
 
@@ -90,6 +103,7 @@ service-a/
 ---
 
 ## I) Checklist before production
+
 - Actuator endpoints exposed safely
 - Rate limiting and auth at gateway
 - Structured logs with trace correlation

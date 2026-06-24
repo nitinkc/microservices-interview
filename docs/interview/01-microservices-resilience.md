@@ -189,6 +189,7 @@ spec:
   template:
     spec:
       containers:
+
         - name: inventory
           livenessProbe:
             httpGet:

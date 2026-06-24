@@ -259,6 +259,7 @@ management:
 ```
 
 Endpoints:
+
 - `GET /actuator/health/liveness` → `{"status": "UP"}`
 - `GET /actuator/health/readiness` → `{"status": "UP"}`
 
@@ -272,9 +273,11 @@ spec:
   template:
     spec:
       containers:
+
         - name: order-service
           image: myrepo/order-service:1.2.0
           ports:
+
             - containerPort: 8080
           startupProbe:
             httpGet:

@@ -115,6 +115,7 @@ graph LR
 ```
 
 **Key rules:**
+
 - **Never break the API contract** for clients during migration
 - **Migrate data ownership** along with the service — each service gets its own schema
 - **Use dual writes** during transition: write to both old and new until cutover
@@ -142,22 +143,27 @@ The sidecar runs as a companion container in the same pod as the main service, h
 ```yaml
 spec:
   containers:
+
     - name: order-service          # Main container
       image: myrepo/order-service:1.2.0
       volumeMounts:
+
         - name: logs
           mountPath: /var/log/app
 
     - name: log-shipper            # Sidecar container
       image: fluent/fluentd:v1.16
       volumeMounts:
+
         - name: logs
           mountPath: /var/log/app  # Shared volume — reads service logs
       env:
+
         - name: ELASTICSEARCH_HOST
           value: "elasticsearch:9200"
 
   volumes:
+
     - name: logs
       emptyDir: {}                 # Shared between main + sidecar
 ```
@@ -255,6 +261,7 @@ graph LR
 ```
 
 **Guarantees:**
+
 - ✅ At-least-once delivery (consumer must be idempotent)
 - ✅ No event loss even if Kafka or app crashes
 - ✅ Order of events preserved per aggregate

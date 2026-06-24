@@ -5,6 +5,7 @@
 ---
 
 ## 1) What makes a service a microservice?
+
 - **Single responsibility / bounded context** (domain-driven boundary)
 - **Independently deployable** unit
 - **Owns its data** (avoid shared DB)
@@ -14,6 +15,7 @@
 
 ## 2) Minimal service template (recommended modules)
 **Dependencies (typical):**
+
 - `spring-boot-starter-web` (REST)
 - `spring-boot-starter-validation`
 - `spring-boot-starter-actuator` (health/metrics)
@@ -35,6 +37,7 @@ record CreateOrderRequest(
 ```
 
 ### Controller best practices
+
 - Keep controllers thin (delegate to service layer)
 - Use `@ControllerAdvice` for consistent error responses
 - Use versioning (`/v1/...`) or header-based versioning
@@ -43,10 +46,12 @@ record CreateOrderRequest(
 
 ## 4) Data patterns you’ll actually need
 ### Database-per-service
+
 - Each service owns its schema.
 - Cross-service queries happen via APIs or events.
 
 ### Transactions across services (don’t do 2PC)
+
 - Prefer **Saga pattern** (choreography via events or orchestration).
 - Use **Outbox pattern** to publish events reliably from DB.
 
@@ -72,6 +77,7 @@ class PricingClient {
 }
 ```
 **Rules of thumb:**
+
 - Timeouts everywhere (client & server).
 - Retries only for safe/idempotent ops.
 - Bulkheads to avoid thread/connection pool exhaustion.
@@ -86,26 +92,31 @@ management.endpoint.health.show-details=when_authorized
 ```
 
 ### Structured logging
+
 - Include `traceId` / `spanId` in logs (log correlation).
 
 ### Tracing (OpenTelemetry)
+
 - Use Micrometer Tracing bridge (Boot 3+) or OTel Java agent.
 
 ---
 
 ## 7) Configuration & secrets
+
 - Use env vars / config server, never hardcode secrets.
 - Externalize config per environment: dev/test/prod.
 
 ---
 
 ## 8) Security basics
+
 - Prefer OAuth2/OIDC with JWT for service-to-service.
 - Validate tokens at the edge (gateway) AND at services for defense-in-depth.
 
 ---
 
 ## 9) Testing pyramid for microservices
+
 - Unit tests (fast)
 - Slice tests (`@WebMvcTest`, `@DataJpaTest`)
 - Contract tests (consumer-driven contracts)
@@ -114,6 +125,7 @@ management.endpoint.health.show-details=when_authorized
 ---
 
 ## 10) Deployment basics
+
 - Containerize (Docker)
 - Health probes: readiness/liveness via Actuator
 - Resource limits (CPU/memory)
@@ -122,6 +134,7 @@ management.endpoint.health.show-details=when_authorized
 ---
 
 ## Common interview questions
+
 - Why database-per-service?
 - How do you do distributed transactions?
 - What are timeouts/retries/circuit breakers and how do you tune them?
@@ -130,6 +143,7 @@ management.endpoint.health.show-details=when_authorized
 ---
 
 ## References (official docs to bookmark)
+
 - Spring Boot Actuator docs
 - Spring Cloud Circuit Breaker docs
 - OpenTelemetry Java instrumentation docs

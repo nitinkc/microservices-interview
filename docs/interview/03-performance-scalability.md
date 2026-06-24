@@ -100,6 +100,7 @@ spec:
     clientIP:
       timeoutSeconds: 10800
   ports:
+
     - port: 80
       targetPort: 8080
   loadBalancerAlgorithm: leastconn  # Use least-connections
@@ -109,6 +110,7 @@ spec:
 
 ```
 Per-instance metrics:
+
 - Instance A: 50% CPU, 8K req/sec
 - Instance B: 25% CPU, 4K req/sec ← Uneven!
 - Instance C: 75% CPU, 12K req/sec
@@ -126,20 +128,24 @@ Action: Check if Instance B is slow, remove from pool, rebalance
 
 ```
 1. Query optimization
+
    - Add indexes, use EXPLAIN
    - Avoid N+1 queries
    - Batch operations
 
 2. Caching
+
    - Redis for hot data
    - Cache-aside pattern
    - Invalidation strategy
 
 3. Read replicas
+
    - Offload reads to read-only followers
    - Trade consistency for throughput
 
 4. Sharding
+
    - Partition by tenant or key
    - Requires app-level routing
 ```
@@ -232,12 +238,14 @@ spec:
   minReplicas: 3
   maxReplicas: 20
   metrics:
+
     - type: Resource
       resource:
         name: cpu
         target:
           type: Utilization
           averageUtilization: 70
+
     - type: Resource
       resource:
         name: memory
@@ -248,12 +256,14 @@ spec:
     scaleUp:
       stabilizationWindowSeconds: 30
       policies:
+
         - type: Percent
           value: 100  # Double replicas
           periodSeconds: 30
     scaleDown:
       stabilizationWindowSeconds: 300
       policies:
+
         - type: Percent
           value: 50   # Reduce by 50%
           periodSeconds: 60

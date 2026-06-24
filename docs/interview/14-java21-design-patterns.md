@@ -4,6 +4,7 @@
 ---
 
 ## Ground Rules for the Interviewer
+
 - Ask: **"What pattern is this, and what problem does it solve?"** before anything else.
 - Then: **"How does the Java 21 feature here change the traditional implementation?"**
 - Watch for: candidates who know the GoF pattern but not the Java 21 nuance — or vice versa.
@@ -46,6 +47,7 @@ public class ConfigManager {
 **Question 2:** Java 21 introduced **Virtual Threads** (Project Loom). Does that change the risk?
 
 **What happens:**
+
 - Classic race condition — two threads can both see `instance == null` and create two instances.
 - **Virtual Threads** make this *worse*, not better: they are cheap (millions possible), so concurrent access is far more likely than with platform threads.
 - Traditional fix: double-checked locking with `volatile`. But the **modern Java idiom** is the **initialization-on-demand holder**:
@@ -121,10 +123,12 @@ public record OrderRecord(String customerId, List<String> items, String status) 
 **Question:** A junior dev says "just use a record — it's less code." When is the traditional Builder still the right choice over a record?
 
 **What a weak answer looks like:**
+
 - "Use records always, they're modern"
 - "Use Builder always, it's a design pattern"
 
 **What a strong answer looks like:**
+
 - **Records are ideal** when: all fields are required, object is truly immutable, it's primarily a data carrier (DTO, value object)
 - **Builder is still needed** when:
   - Many **optional fields** — record constructors require all fields
@@ -167,6 +171,7 @@ public class AreaCalculator {
 **Question 2:** A new `Hexagon` shape is added. What happens to this code — and why is that a feature, not a bug?
 
 **What a strong answer looks like:**
+
 - This is the **Visitor pattern** intent (dispatch behaviour by type) but implemented via **pattern matching switch** — no `accept()`/`visit()` boilerplate needed
 - `sealed` means the compiler knows the **exhaustive set of subtypes** at compile time
 - Adding `Hexagon` without updating the switch → **compile error** (non-exhaustive switch) — the compiler forces you to handle every case
@@ -226,6 +231,7 @@ logger.log("Card: 1234-5678-9012-3456");
 (Timestamp added, card number masked.)
 
 **What a strong answer looks like:**
+
 - This is the **Decorator pattern** — wraps behaviour at runtime without subclassing
 - Using records *works* here because: each decorator is stateless except for the delegate, and `delegate` is effectively final in a record
 - The teammate has a point: records are semantically meant to be **value objects / data carriers** — their `equals()`, `hashCode()`, and `toString()` are auto-generated based on components, which is semantically odd for a logger decorator
@@ -270,6 +276,7 @@ public record CustomerAdapter(LegacyCustomer legacy) implements Customer {
 **Question:** What pattern is this? What does making the adapter a `record` give you — and what does it prevent?
 
 **What a strong answer looks like:**
+
 - Classic **Adapter (Wrapper) pattern** — translates one interface to another without modifying the original
 - Making it a `record` gives:
   - **Immutability**: the `legacy` reference can't be reassigned
@@ -319,6 +326,7 @@ public class OrderFacade {
 **Question 2:** What has gone wrong here — and what pattern has it turned into?
 
 **What a strong answer looks like:**
+
 - **Facade** simplifies a complex subsystem behind a single entry point — good intent
 - **What's gone wrong**: 7 dependencies, all sequential, no error handling, no rollback — this has become a **God Object / God Method**
 - Specific problems:
@@ -369,9 +377,11 @@ Sorter s = new Sorter(data -> Collections.sort(data));
 **Question:** A senior dev says "lambdas make the Strategy pattern obsolete in Java." Do you agree? When do you still want full Strategy classes?
 
 **What a weak answer looks like:**
+
 - "Yes, always use lambdas" or "No, always use classes"
 
 **What a strong answer looks like:**
+
 - Lambdas **are** the Strategy pattern when the strategy has a single method — `@FunctionalInterface` is literally a strategy contract
 - **Lambdas are sufficient when:**
   - Strategy is stateless
@@ -420,6 +430,7 @@ public class StockPublisher implements Flow.Publisher<StockPrice> {
 **Question 2:** How does `java.util.concurrent.Flow` (Java 9+) address them — and what is the core concept it adds?
 
 **What a strong answer looks like:**
+
 - **Traditional observer problems:**
   - Observers run **synchronously** on the publisher's thread — a slow observer blocks all others
   - No **backpressure**: if publisher emits faster than observer can consume → memory blowup or data loss
@@ -476,6 +487,7 @@ public class OrderCommandHandler {
 **Question 2:** There's a significant flaw in the `undo()` method. What is it?
 
 **What a strong answer looks like:**
+
 - **Command pattern**: encapsulates a request as an object — supports undo, queuing, logging
 - `sealed` ensures exhaustive switch — adding a new command type forces updating both `execute()` and `undo()` at compile time — critical for correctness
 - Records make commands **immutable value objects** — no risk of a command being mutated after queuing
@@ -521,6 +533,7 @@ public interface DataProcessor {
 **Question:** Both implement Template Method. What is the key difference between using an `abstract class` vs an `interface with default methods` — and when does each win?
 
 **What a strong answer looks like:**
+
 - **Abstract class wins when:**
   - You need to share **state** (fields) across steps — interfaces can't have instance fields
   - You need `protected` visibility — interface members are `public` by default
@@ -573,6 +586,7 @@ public class NotificationDispatcher {
 **Question 2:** Why is the order of the `case` branches important for `EmailNotification`?
 
 **What a strong answer looks like:**
+
 - `when` is a **guard clause** (Java 21, also called a guarded pattern) — adds a boolean condition on top of the type match
 - Order matters: `case EmailNotification e when e.body().length() > 1000` must come **before** `case EmailNotification e` — if the general case came first, the guarded case would be **dominated** (unreachable) → compile error
 - This is the **Visitor pattern** completely replaced: no `accept()`, no `visit()`, no double dispatch boilerplate — just a `switch` expression
@@ -615,6 +629,7 @@ void processOrder(Order order) {
 **Question 2:** Does this mean you should always use `newVirtualThreadPerTaskExecutor`? What patterns or code break with virtual threads?
 
 **What a strong answer looks like:**
+
 - **Platform threads** map 1:1 to OS threads — blocking I/O parks the OS thread, wasting ~1MB of stack
 - **Virtual threads** are JVM-managed — blocking I/O parks the virtual thread but **unmounts it from the carrier OS thread**, which is then free to run other virtual threads
 - Result: you can have **millions** of virtual threads with the same OS threads — no thread pool needed for I/O-bound work

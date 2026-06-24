@@ -4,6 +4,7 @@
 ---
 
 ## Ground Rules for the Interviewer
+
 - Say: **"Walk me through your thinking"** — the reasoning matters more than the answer.
 - Push back even on correct answers: **"What could go wrong with that?"**
 - Watch for: buzzword soup without depth ("just use Kafka", "put it in Redis") vs. someone who explains trade-offs.
@@ -22,10 +23,12 @@
 **Question:** Is this a microservice? How would you break it up — and more importantly, what is your process for deciding the boundaries?
 
 **What a weak answer looks like:**
+
 - "Split it into smaller services" (no criteria given)
 - Splits purely by tech layer ("put emails in one service, DB in another")
 
 **What a strong answer looks like:**
+
 - Uses **Domain-Driven Design** — identify bounded contexts: Order Management, Pricing, Notification, Inventory, Invoicing, Fulfilment
 - Asks: *"What changes together should stay together"* (cohesion)
 - Acknowledges the **strangler fig pattern** for incremental migration, not a big-bang rewrite
@@ -50,10 +53,12 @@ ShippingService─┘
 **Question:** What are the problems with this design? The teams argue it's "simpler" — how do you convince them otherwise?
 
 **What a weak answer looks like:**
+
 - "It's bad practice" (no reasoning)
 - Only mentions performance
 
 **What a strong answer looks like:**
+
 - **Schema coupling**: if `OrderService` renames a column, `ShippingService` breaks silently
 - **Deployment coupling**: you can't deploy independently
 - **Data ownership is unclear**: who is the source of truth for order status?
@@ -73,10 +78,12 @@ ShippingService─┘
 **Question:** Is this a good microservice? What criteria determine if something deserves to be its own service?
 
 **What a weak answer looks like:**
+
 - "Yes, it's small so it's good"
 - "No, it's too small" (without explaining the cost)
 
 **What a strong answer looks like:**
+
 - A service boundary should map to a **business capability**, not a technical function
 - Ask: does this change independently? Does it have its own domain model? Does it need to scale independently?
 - A thin SMTP wrapper is likely a **library**, not a service — unless it adds: template management, delivery tracking, retry logic, suppression lists, rate limiting per tenant
@@ -104,10 +111,12 @@ Client → API Gateway → OrderService → PaymentService → InventoryService 
 **Question:** What is the failure mode here? What happens if `NotificationService` is slow?
 
 **What a weak answer looks like:**
+
 - "Add a timeout"
 - "Use a circuit breaker" (without explaining why or what it does)
 
 **What a strong answer looks like:**
+
 - **Cascading failures**: one slow service holds a thread in every upstream service → thread pool exhaustion → entire chain degrades
 - **Latency multiplication**: each hop adds latency; 4 services × 200ms = 800ms minimum, plus variance
 - **Availability multiplication**: if each service is 99.9% available → chain is `0.999^4 = 99.6%`
@@ -130,10 +139,12 @@ Client → API Gateway → OrderService → PaymentService → InventoryService 
 **Question:** What happens? How do you prevent double-decrement?
 
 **What a weak answer looks like:**
+
 - "Use exactly-once delivery in Kafka" (doesn't explain idempotency)
 - "It won't happen in production"
 
 **What a strong answer looks like:**
+
 - Kafka (and most brokers) guarantee **at-least-once** delivery by default; exactly-once is possible but has overhead and caveats
 - The real fix is **idempotent consumers**: track which event IDs have been processed
 - Store `event_id` in a `processed_events` table; check before processing — if already seen, skip
@@ -159,10 +170,12 @@ CarService     ❌ failed
 **Question:** The overall booking should be atomic — either all succeed or none do. How do you handle this without a distributed transaction (2PC)?
 
 **What a weak answer looks like:**
+
 - "Use a database transaction" (misses the point — these are separate services/DBs)
 - "Use XA transactions / 2PC" (technically possible but explains no trade-offs)
 
 **What a strong answer looks like:**
+
 - **Saga pattern**: a sequence of local transactions; on failure, execute **compensating transactions**
   - Cancel flight booking (`FlightService.cancel(bookingId)`)
   - Cancel hotel booking (`HotelService.cancel(bookingId)`)
@@ -188,10 +201,12 @@ CarService     ❌ failed
 **Question:** Is CQRS a good fit here? What are the costs they might be underestimating?
 
 **What a weak answer looks like:**
+
 - "Yes, CQRS is always good for scale"
 - "No, it's too complex" (without nuance)
 
 **What a strong answer looks like:**
+
 - The **read/write asymmetry** (10,000:5) is a classic CQRS use case — separate read models can be denormalised, cached, scaled independently
 - But costs are real:
   - **Eventual consistency** between write model and read model — reads may lag
@@ -218,16 +233,19 @@ kafkaTemplate.send("orders", event); // Step 2 — what if this fails?
 **Question:** What are the failure scenarios? How do you make this reliable?
 
 **What a weak answer looks like:**
+
 - "Wrap it in a try-catch"
 - "Use a transaction" (you can't span a DB and Kafka in one transaction easily)
 
 **What a strong answer looks like:**
+
 - **Dual write is inherently unsafe**: if the DB write succeeds but Kafka publish fails → event is lost, downstream services never know the order was placed
 - If Kafka publishes first and DB write fails → phantom event for a non-existent order
 - Fix: **Transactional Outbox Pattern**:
   1. Write order AND an `outbox` record in the **same DB transaction**
   2. A separate **relay process** (e.g., Debezium CDC) reads the outbox table and publishes to Kafka
   3. Once published, mark outbox record as sent
+
 - This ensures at-least-once event delivery with no dual write risk
 
 **Critical follow-up:** Debezium reads the DB transaction log (WAL). What happens if Debezium is down for 2 hours? (Events queue up in the outbox table and are replayed when Debezium recovers — this is the durability benefit.)

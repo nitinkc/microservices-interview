@@ -66,6 +66,7 @@ resilience4j:
         wait-duration: 100ms
         exponential-backoff-multiplier: 2
         retry-exceptions:
+
           - java.net.ConnectException
           - java.io.IOException
 
@@ -112,12 +113,14 @@ Total max wait: 300ms before failing
 Service A → Service B (processing 10,000 requests)
 
 REST:
+
 - Request size: 200 bytes × 10k = 2 MB
 - Response size: 300 bytes × 10k = 3 MB
 - Total: 5 MB over network
 - Latency: ~50 ms per request (JSON parsing)
 
 gRPC:
+
 - Request size: 50 bytes × 10k = 500 KB
 - Response size: 75 bytes × 10k = 750 KB
 - Total: 1.25 MB over network (-75%)
@@ -161,6 +164,7 @@ public class OrderServiceImpl extends OrderServiceGrpc.OrderServiceImplBase {
 ```
 
 **Recommendation:**
+
 - **Use REST** — Public APIs, third-party clients, simplicity required
 - **Use gRPC** — Internal service-to-service (10+ services), high throughput, streaming needs
 - **Hybrid** — REST for edge (API Gateway) → gRPC internally
@@ -232,6 +236,7 @@ public class OrderController {
 ### Answer
 
 **Service mesh = sidecar proxies + control plane** that handle:
+
 - Retries, circuit breaking, timeouts (without code changes)
 - Load balancing, traffic splitting (canary deployments)
 - mTLS encryption between all services
@@ -256,6 +261,7 @@ public class OrderController {
 | **Debugging** | Flow is visible in mesh | More tools to learn (istioctl) |
 
 **Recommendation:**
+
 - **Start with** Resilience4j libraries (simpler, less overhead)
 - **Migrate to service mesh** when you have 15+ services AND a dedicated platform team
 - **Use managed service mesh** (AWS App Mesh, Google Anthos) to reduce operational burden

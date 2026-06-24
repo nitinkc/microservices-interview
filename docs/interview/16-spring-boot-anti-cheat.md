@@ -4,6 +4,7 @@
 ---
 
 ## Ground Rules for the Interviewer
+
 - Always ask: **"What does this do / print / throw — and why?"** before any explanation.
 - Follow up with **"How would you fix / improve this?"**
 - Bonus: ask them to write a small variation from scratch (no copy-paste source).
@@ -28,6 +29,7 @@ public class OrderService {
 **Question:** Does this compile and start up? What is the recommended alternative?
 
 **What happens:**
+
 - It **compiles** but Spring **cannot inject** via field injection into a `final` field — the field stays `null` at runtime → `NullPointerException` on `process()`.
 - The correct approach is **constructor injection**, which works naturally with `final`:
 
@@ -67,6 +69,7 @@ public class ServiceB {
 **Question:** Does the application context start? What error do you get?
 
 **What happens:**
+
 - With **field injection**, Spring *used to* resolve this silently via a proxy in older versions.
 - Since **Spring Boot 2.6+**, circular dependencies are **prohibited by default** → `BeanCurrentlyInCreationException` at startup.
 - With **constructor injection**, it always fails regardless of version (correctly).
@@ -102,6 +105,7 @@ public class InvoiceService {
 **Question:** Is the `saveInvoice` method transactional? Why or why not?
 
 **What happens:**
+
 - `@Transactional` on a **`private` method is silently ignored** by Spring's AOP proxy.
 - Spring creates a subclass proxy (CGLIB) that can only intercept `public` (or `protected`) methods.
 - `createInvoice` calls `saveInvoice` via `this.saveInvoice()` (not through the proxy), so even if the method were public, the transaction would still not apply — this is the **self-invocation problem**.
@@ -148,6 +152,7 @@ public class AuditService {
 **Question:** When `log()` throws, is the `userRepo.save()` rolled back too?
 
 **What happens:**
+
 - `REQUIRES_NEW` **suspends** the outer transaction and starts a fresh one.
 - `auditService.log()` rolls back its **own** transaction (the new one).
 - The exception **propagates** up to `createUser()`, which rolls back its transaction too.
@@ -176,6 +181,7 @@ public class ItemController {
 **Question:** You call `GET /items/42`. What happens?
 
 **What happens:**
+
 - `@RequestParam` reads from **query parameters** (`?id=42`), not the path.
 - `GET /items/42` with `@RequestParam Long id` → `MissingServletRequestParameterException` (400 Bad Request).
 - Fix: use `@PathVariable Long id`.
@@ -206,6 +212,7 @@ public class AppConfig {
 **Question:** How many `EmailService` instances are created? Which one does Spring use?
 
 **What happens:**
+
 - Spring registers **two** bean definitions: one from component scan, one from `@Bean`.
 - By default this causes a **`ConflictingBeanDefinitionException`** or one overrides the other depending on Spring Boot version and `spring.main.allow-bean-definition-overriding`.
 - Spring Boot 2.1+ disallows overriding by default.
@@ -239,6 +246,7 @@ public class ReportService {
 **Question:** Will `RequestContext` really be a new instance per `generate()` call?
 
 **What happens:**
+
 - No. `@Autowired` injects the dependency **once** when the singleton is created.
 - The same `RequestContext` prototype instance is reused for every call → stale/shared state.
 - Fix options: inject `ApplicationContext` and call `getBean()` each time, use `@Lookup`, or use `ObjectProvider<RequestContext>`.
@@ -277,6 +285,7 @@ public class ConfigController {
 **Question:** What happens at application startup?
 
 **What happens:**
+
 - Spring throws `BeanCreationException: Could not resolve placeholder 'app.timeout'` → **application fails to start**.
 - Fix with a default: `@Value("${app.timeout:30}")` → uses `30` if missing.
 
@@ -309,6 +318,7 @@ class OrderServiceTest {
 **Question:** Will `paymentService` inside `OrderService` be the mock? What is the bug?
 
 **What happens:**
+
 - `@Mock` creates a Mockito mock but **does not register it in the Spring context**.
 - `OrderService` is a real Spring bean — its `paymentService` is the **real bean from the context**, not the mock.
 - The `when(...)` stub has no effect on the real bean → test hits the real `PaymentService`.
@@ -338,6 +348,7 @@ public class UserController {
 **Question:** When the user is not found, what HTTP status code does the client receive? Is that correct REST behaviour?
 
 **What happens:**
+
 - An unhandled `RuntimeException` → Spring returns **500 Internal Server Error**.
 - Semantically, "not found" should be **404**.
 - Fix:
@@ -385,6 +396,7 @@ for (Author a : authors) {
 **Question:** If there are 100 authors, how many SQL queries are executed?
 
 **What happens:**
+
 - `findAll()` → **1** query for authors.
 - Each `a.getBooks()` → **1** query per author (lazy load triggered).
 - Total: **101 queries** — the classic **N+1 problem**.
@@ -423,6 +435,7 @@ class ReportSchedulerTest {
 **Question:** Will `generateReport()` be called during the test? Could this cause flaky tests?
 
 **What happens:**
+
 - Yes — `@SpringBootTest` loads the full context including scheduling infrastructure (`@EnableScheduling`).
 - The scheduler **fires during the test** → potential side effects, flaky timing-based failures.
 - Fix: disable scheduling in tests:

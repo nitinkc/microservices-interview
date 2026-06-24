@@ -174,6 +174,7 @@ graph LR
 | Search service | Fall back to simple DB query |
 
 **Post-incident:**
+
 - Root cause analysis within 48 hours
 - Add new observability: can we detect their degradation faster?
 - Review SLA: do we have contractual protection?
@@ -193,20 +194,24 @@ graph LR
 **A structured 30-60-90 day approach:**
 
 **Week 1 — Read the docs, run the system locally:**
+
 - Maintain a `ARCHITECTURE.md` in the root repo: service map, team ownership, runbooks
 - Provide a `docker-compose.yml` that spins up the full system locally
 - Document the "golden path" — the simplest feature end-to-end
 
 **Week 2-3 — Guided contribution:**
+
 - Assign a simple bug fix or small feature in a well-understood service
 - Pair programming sessions to explain conventions
 - Code review every PR with detailed explanations (not just "LGTM")
 
 **30 days — Unguided contribution:**
+
 - Own a small feature from design to deployment
 - On-call shadow (observe, don't handle)
 
 **60 days — Production ownership:**
+
 - Primary on-call for one service
 - Conduct a postmortem and present findings
 
@@ -255,6 +260,7 @@ Effort_Inverse:   5=quick fix, 1=months of work
 5. **Track debt metrics** — SonarQube quality gate, test coverage trend, build time trend
 
 **What NOT to do:**
+
 - ❌ "Debt sprint" — batching all debt into one sprint that never happens
 - ❌ Letting security CVEs sit in the backlog with low priority
 - ❌ Measuring debt by number of TODO comments (meaningless)
@@ -268,12 +274,14 @@ Effort_Inverse:   5=quick fix, 1=months of work
 This is one of the core tensions in microservices organizations.
 
 **Too much autonomy:**
+
 - Every service uses a different tech stack
 - No shared observability → debugging becomes a nightmare
 - Duplicated solutions to the same problems
 - New engineers lost — nothing is familiar
 
 **Too much control:**
+
 - Slows down teams, creates bottlenecks at architecture review board
 - One-size-fits-all decisions that don't fit some teams
 - "Platform team" becomes a blocker

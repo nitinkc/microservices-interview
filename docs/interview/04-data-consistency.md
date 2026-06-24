@@ -88,6 +88,7 @@ Client → OrderService (publishes: OrderCreated)
 | Failure recovery | Timeouts + compensations in one place | Scattered across services      |
 
 **Recommendation:**
+
 - **Orchestration** for critical, complex business processes (order → payment → inventory → shipping)
 - **Choreography** for loosely coupled events (user signup → send welcome email, create analytics record)
 - **Hybrid** for best of both: orchestrate order creation, choreograph notifications
@@ -125,6 +126,7 @@ Other orders: [blocked on payment/inventory locks]
 ```
 
 **When 2PC is safe:**
+
 - Single database with distributed transactions (no network partitions)
 - Tightly coupled legacy systems where you control all components
 - Very low scale (not at production microservices scale)
